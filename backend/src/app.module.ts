@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { EventsModule } from './events/events.module';
 import { TicketTiersModule } from './ticket-tiers/ticket-tiers.module';
+import { OrdersModule } from './orders/orders.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -15,6 +16,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     AuthModule,
     EventsModule,
     TicketTiersModule,
+    OrdersModule,
   ],
   providers: [
     {
