@@ -36,6 +36,9 @@ export class EventsService {
             firstName: true,
             lastName: true,
             email: true,
+            username: true,    // ADDED
+            avatar: true,      // ADDED
+            verified: true,    // ADDED
           },
         },
       },
@@ -83,6 +86,9 @@ export class EventsService {
             id: true,
             firstName: true,
             lastName: true,
+            username: true,    // ADDED
+            avatar: true,      // ADDED
+            verified: true,    // ADDED
           },
         },
         ticketTiers: {
@@ -99,7 +105,17 @@ export class EventsService {
       orderBy: { eventDate: 'asc' },
     });
 
-    return events;
+    // Transform to format organizer data properly
+    return events.map(event => ({
+      ...event,
+      organizer: event.organizer ? {
+        id: event.organizer.id,
+        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+        username: event.organizer.username,
+        avatar: event.organizer.avatar,
+        verified: event.organizer.verified,
+      } : null,
+    }));
   }
 
   async findOne(id: string) {
@@ -112,6 +128,9 @@ export class EventsService {
             firstName: true,
             lastName: true,
             email: true,
+            username: true,    // ADDED
+            avatar: true,      // ADDED
+            verified: true,    // ADDED
           },
         },
         ticketTiers: {
@@ -124,7 +143,18 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    return event;
+    // Transform organizer data
+    return {
+      ...event,
+      organizer: event.organizer ? {
+        id: event.organizer.id,
+        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+        email: event.organizer.email,
+        username: event.organizer.username,
+        avatar: event.organizer.avatar,
+        verified: event.organizer.verified,
+      } : null,
+    };
   }
 
   async findBySlug(slug: string) {
@@ -136,6 +166,9 @@ export class EventsService {
             id: true,
             firstName: true,
             lastName: true,
+            username: true,    // ADDED
+            avatar: true,      // ADDED
+            verified: true,    // ADDED
           },
         },
         ticketTiers: {
@@ -149,7 +182,17 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    return event;
+    // Transform organizer data
+    return {
+      ...event,
+      organizer: event.organizer ? {
+        id: event.organizer.id,
+        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+        username: event.organizer.username,
+        avatar: event.organizer.avatar,
+        verified: event.organizer.verified,
+      } : null,
+    };
   }
 
   async findByOrganizer(organizerId: string) {
@@ -202,6 +245,9 @@ export class EventsService {
             firstName: true,
             lastName: true,
             email: true,
+            username: true,    // ADDED
+            avatar: true,      // ADDED
+            verified: true,    // ADDED
           },
         },
         ticketTiers: true,

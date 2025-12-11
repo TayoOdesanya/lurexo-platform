@@ -8,6 +8,7 @@ import { TicketTiersModule } from './ticket-tiers/ticket-tiers.module';
 import { OrdersModule } from './orders/orders.module';
 import { TicketTransfersModule } from './ticket-transfers/ticket-transfers.module';
 import { ResaleMarketplaceModule } from './resale-marketplace/resale-marketplace.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -21,6 +22,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     OrdersModule,
     TicketTransfersModule,
     ResaleMarketplaceModule,
+    AnalyticsModule,
   ],
   providers: [
     {

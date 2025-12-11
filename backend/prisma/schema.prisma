@@ -43,44 +43,60 @@ enum ListingStatus {
 }
 
 model User {
-  id                String      @id @default(uuid())
-  email             String      @unique
-  passwordHash      String      @map("password_hash")
-  role              UserRole    @default(BUYER)
-  status            UserStatus  @default(ACTIVE)
-  
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         UserRole   @default(BUYER)
+  status       UserStatus @default(ACTIVE)
+
   // Profile
-  firstName         String?     @map("first_name")
-  lastName          String?     @map("last_name")
-  phoneNumber       String?     @map("phone_number")
-  dateOfBirth       DateTime?   @map("date_of_birth") @db.Date
-  profilePicture    String?     @map("profile_picture")
-  
+  firstName      String?   @map("first_name")
+  lastName       String?   @map("last_name")
+  phoneNumber    String?   @map("phone_number")
+  dateOfBirth    DateTime? @map("date_of_birth") @db.Date
+  profilePicture String?   @map("profile_picture")
+  username       String?   @unique
+  avatar         String?
+  verified       Boolean   @default(false)
+
   // Verification
-  emailVerified     Boolean     @default(false) @map("email_verified")
-  emailVerifiedAt   DateTime?   @map("email_verified_at")
-  verificationToken String?     @unique @map("verification_token")
-  
+  emailVerified     Boolean   @default(false) @map("email_verified")
+  emailVerifiedAt   DateTime? @map("email_verified_at")
+  verificationToken String?   @unique @map("verification_token")
+
   // Password Reset
-  resetToken        String?     @unique @map("reset_token")
-  resetTokenExpiry  DateTime?   @map("reset_token_expiry")
-  
+  resetToken       String?   @unique @map("reset_token")
+  resetTokenExpiry DateTime? @map("reset_token_expiry")
+
+  // Organizer fields
+  organizerId       String?
+  organizerName     String?
+  organizerUsername String?
+  organizerAvatar   String?
+  organizerVerified Boolean @default(false)
+
   // Timestamps
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
-  lastLoginAt       DateTime?   @map("last_login_at")
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  lastLoginAt DateTime? @map("last_login_at")
+
   // Relations
-  organizedEvents   Event[]     @relation("OrganizerEvents")
-  orders            Order[]     @relation("BuyerOrders")
-  tickets           Ticket[]    @relation("TicketOwner")
-  sellerListings    TicketListing[] @relation("SellerListings")
+  organizedEvents   Event[]          @relation("OrganizerEvents")
+  orders            Order[]          @relation("BuyerOrders")
+  tickets           Ticket[]         @relation("TicketOwner")
+  sellerListings    TicketListing[]  @relation("SellerListings")
   sentTransfers     TicketTransfer[] @relation("TransferSender")
   receivedTransfers TicketTransfer[] @relation("TransferReceiver")
-  purchases         TicketListing[] @relation("ListingBuyer")
+  purchases         TicketListing[]  @relation("ListingBuyer")
   bankAccounts      BankAccount[]
   payouts           Payout[]
-  
+
+  // NEW: Marketing & Collaborators relations
+  collaborators          Collaborator[]     @relation("UserCollaborators")
+  organizerCollaborators Collaborator[]     @relation("OrganizerCollaborators")
+  marketingAccounts      MarketingAccount[]
+  fanSubscriptions       FanSubscription[]
+
   @@map("users")
 }
 
@@ -106,69 +122,234 @@ enum EventCategory {
 }
 
 model Event {
-  id                String        @id @default(uuid())
-  organizerId       String        @map("organizer_id")
-  
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
   // Basic Info
-  title             String
-  slug              String        @unique
-  description       String        @db.Text
-  category          EventCategory
-  status            EventStatus   @default(DRAFT)
-  
+  title       String
+  slug        String        @unique
+  description String        @db.Text
+  category    EventCategory
+  status      EventStatus   @default(DRAFT)
+
   // Images
-  heroImage         String        @map("hero_image")
-  galleryImages     String[]      @map("gallery_images")
-  
+  heroImage     String   @map("hero_image")
+  galleryImages String[] @map("gallery_images")
+
   // Location
-  venue             String
-  address           String
-  city              String
-  country           String        @default("United Kingdom")
-  postalCode        String        @map("postal_code")
-  latitude          Decimal?      @db.Decimal(10, 8)
-  longitude         Decimal?      @db.Decimal(11, 8)
-  
+  venue      String
+  address    String
+  city       String
+  country    String   @default("United Kingdom")
+  postalCode String   @map("postal_code")
+  latitude   Decimal? @db.Decimal(10, 8)
+  longitude  Decimal? @db.Decimal(11, 8)
+
   // Date & Time
-  eventDate         DateTime      @map("event_date")
-  doorsOpen         DateTime?     @map("doors_open")
-  eventEnd          DateTime?     @map("event_end")
-  timezone          String        @default("Europe/London")
-  
+  eventDate DateTime  @map("event_date")
+  doorsOpen DateTime? @map("doors_open")
+  eventEnd  DateTime? @map("event_end")
+  timezone  String    @default("Europe/London")
+
   // Sales Configuration
-  saleStartDate     DateTime      @map("sale_start_date")
-  saleEndDate       DateTime      @map("sale_end_date")
-  maxTicketsPerOrder Int          @default(10) @map("max_tickets_per_order")
-  
+  saleStartDate      DateTime @map("sale_start_date")
+  saleEndDate        DateTime @map("sale_end_date")
+  maxTicketsPerOrder Int      @default(10) @map("max_tickets_per_order")
+
   // Capacity & Sales
-  totalCapacity     Int           @map("total_capacity")
-  ticketsSold       Int           @default(0) @map("tickets_sold")
-  
+  totalCapacity Int @map("total_capacity")
+  ticketsSold   Int @default(0) @map("tickets_sold")
+
   // Revenue Tracking (in pence)
-  totalRevenue      Int           @default(0) @map("total_revenue")
-  organizerRevenue  Int           @default(0) @map("organizer_revenue")
-  platformRevenue   Int           @default(0) @map("platform_revenue")
-  resaleCapType     ResaleCapType @default(PERCENTAGE_CAP)
-  resaleCapValue    Int?          @default(110)
-  allowResale       Boolean       @default(true)
-  
+  totalRevenue     Int           @default(0) @map("total_revenue")
+  organizerRevenue Int           @default(0) @map("organizer_revenue")
+  platformRevenue  Int           @default(0) @map("platform_revenue")
+  resaleCapType    ResaleCapType @default(PERCENTAGE_CAP)
+  resaleCapValue   Int?          @default(110)
+  allowResale      Boolean       @default(true)
+
   // Timestamps
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  publishedAt       DateTime?     @map("published_at")
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  publishedAt DateTime? @map("published_at")
+
   // Relations
-  organizer         User          @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: Cascade)
-  ticketTiers       TicketTier[]
-  orders            Order[]
-  tickets           Ticket[]
-  listings          TicketListing[]
-  
+  organizer     User            @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: Cascade)
+  ticketTiers   TicketTier[]
+  orders        Order[]
+  tickets       Ticket[]
+  listings      TicketListing[]
+  paymentSplits PaymentSplit[]
+
   @@index([organizerId])
   @@index([status, eventDate])
   @@index([category, eventDate])
   @@index([slug])
   @@map("events")
+}
+
+// ============================================
+// COLLABORATORS & MARKETING
+// ============================================
+
+enum CollaboratorRole {
+  ADMIN
+  EVENT_MANAGER
+  MARKETING_LEAD
+  PROMOTER
+  SECURITY
+  STAFF
+}
+
+enum CollaboratorStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+model Collaborator {
+  id              String             @id @default(uuid())
+  userId          String
+  organizerId     String
+  role            CollaboratorRole
+  status          CollaboratorStatus @default(PENDING)
+  has2FA          Boolean            @default(false)
+  assignedEvents  String[] // Event IDs
+  tempAccessStart DateTime?
+  tempAccessEnd   DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user          User           @relation("UserCollaborators", fields: [userId], references: [id])
+  organizer     User           @relation("OrganizerCollaborators", fields: [organizerId], references: [id])
+  permissions   Permission[]
+  paymentSplits PaymentSplit[]
+
+  @@unique([userId, organizerId])
+  @@map("collaborators")
+}
+
+model Permission {
+  id             String  @id @default(uuid())
+  collaboratorId String
+  manageEvents   Boolean @default(false)
+  viewAnalytics  Boolean @default(false)
+  manageSales    Boolean @default(false)
+  accessDoor     Boolean @default(false)
+  sendMarketing  Boolean @default(false)
+  manageTeam     Boolean @default(false)
+
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id])
+
+  @@map("permissions")
+}
+
+model PaymentSplit {
+  id             String   @id @default(uuid())
+  collaboratorId String
+  eventId        String
+  percentage     Int // 0-50
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  collaborator Collaborator @relation(fields: [collaboratorId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+
+  @@map("payment_splits")
+}
+
+enum ProfileType {
+  ARTIST
+  ORGANIZER
+}
+
+model MarketingAccount {
+  id          String      @id @default(uuid())
+  userId      String
+  accountType ProfileType
+  fanCount    Int         @default(0)
+  createdAt   DateTime    @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  campaigns Campaign[]
+
+  @@map("marketing_accounts")
+}
+
+enum CampaignType {
+  NEW_SHOW
+  EXCLUSIVE_ACCESS
+  MERCH_DROP
+  THANK_YOU
+  INTIMATE_SHOWCASE
+  LAST_CHANCE
+  CUSTOM
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+}
+
+model Campaign {
+  id           String         @id @default(uuid())
+  accountId    String
+  name         String
+  type         CampaignType
+  subject      String
+  content      String         @db.Text
+  smsContent   String?
+  segmentId    String?
+  status       CampaignStatus @default(DRAFT)
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  createdAt    DateTime       @default(now())
+
+  account   MarketingAccount   @relation(fields: [accountId], references: [id])
+  analytics CampaignAnalytics?
+
+  @@map("campaigns")
+}
+
+model FanSubscription {
+  id             String      @id @default(uuid())
+  fanId          String
+  entityId       String // Artist or Organizer ID
+  entityType     ProfileType
+  email          Boolean     @default(true)
+  sms            Boolean     @default(false)
+  source         String // "ticket-purchase", "manual", "referral"
+  subscribedAt   DateTime    @default(now())
+  unsubscribedAt DateTime?
+
+  fan User @relation(fields: [fanId], references: [id])
+
+  @@unique([fanId, entityId, entityType])
+  @@map("fan_subscriptions")
+}
+
+model CampaignAnalytics {
+  id             String @id @default(uuid())
+  campaignId     String @unique
+  sent           Int    @default(0)
+  delivered      Int    @default(0)
+  opened         Int    @default(0)
+  openRate       Float  @default(0)
+  clicked        Int    @default(0)
+  clickRate      Float  @default(0)
+  converted      Int    @default(0)
+  conversionRate Float  @default(0)
+  revenue        Float  @default(0)
+  unsubscribed   Int    @default(0)
+  complained     Int    @default(0)
+  bounced        Int    @default(0)
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+
+  @@map("campaign_analytics")
 }
 
 // ============================================
@@ -182,33 +363,33 @@ enum TierStatus {
 }
 
 model TicketTier {
-  id                String      @id @default(uuid())
-  eventId           String      @map("event_id")
-  
+  id      String @id @default(uuid())
+  eventId String @map("event_id")
+
   // Tier Details
-  name              String
-  description       String?     @db.Text
-  price             Int         // Price in pence
-  quantity          Int
-  quantitySold      Int         @default(0) @map("quantity_sold")
-  
+  name         String
+  description  String? @db.Text
+  price        Int // Price in pence
+  quantity     Int
+  quantitySold Int     @default(0) @map("quantity_sold")
+
   // Sales Configuration
-  status            TierStatus  @default(ACTIVE)
-  maxPerOrder       Int         @default(10) @map("max_per_order")
-  saleStartDate     DateTime?   @map("sale_start_date")
-  saleEndDate       DateTime?   @map("sale_end_date")
-  
+  status        TierStatus @default(ACTIVE)
+  maxPerOrder   Int        @default(10) @map("max_per_order")
+  saleStartDate DateTime?  @map("sale_start_date")
+  saleEndDate   DateTime?  @map("sale_end_date")
+
   // Display
-  displayOrder      Int         @default(0) @map("display_order")
-  
+  displayOrder Int @default(0) @map("display_order")
+
   // Timestamps
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  event             Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tickets           Ticket[]
-  
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
   @@index([eventId])
   @@map("ticket_tiers")
 }
@@ -227,39 +408,39 @@ enum OrderStatus {
 }
 
 model Order {
-  id                String      @id @default(uuid())
-  userId            String      @map("user_id")
-  eventId           String      @map("event_id")
-  
+  id      String @id @default(uuid())
+  userId  String @map("user_id")
+  eventId String @map("event_id")
+
   // Order Details
-  orderNumber       String      @unique @map("order_number")
-  status            OrderStatus @default(PENDING)
-  
+  orderNumber String      @unique @map("order_number")
+  status      OrderStatus @default(PENDING)
+
   // Pricing (in pence)
-  subtotal          Int         // Sum of ticket prices
-  serviceFee        Int         @map("service_fee") // 4% fee
-  totalAmount       Int         @map("total_amount")
-  
+  subtotal    Int // Sum of ticket prices
+  serviceFee  Int @map("service_fee") // 4% fee
+  totalAmount Int @map("total_amount")
+
   // Payment
   stripePaymentIntentId String? @unique @map("stripe_payment_intent_id")
-  stripeChargeId    String?     @unique @map("stripe_charge_id")
-  paymentMethod     String?     @map("payment_method") // card, apple_pay, google_pay
-  
+  stripeChargeId        String? @unique @map("stripe_charge_id")
+  paymentMethod         String? @map("payment_method") // card, apple_pay, google_pay
+
   // Buyer Information
-  buyerEmail        String      @map("buyer_email")
-  buyerFirstName    String      @map("buyer_first_name")
-  buyerLastName     String      @map("buyer_last_name")
-  
+  buyerEmail     String @map("buyer_email")
+  buyerFirstName String @map("buyer_first_name")
+  buyerLastName  String @map("buyer_last_name")
+
   // Timestamps
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
-  completedAt       DateTime?   @map("completed_at")
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  completedAt DateTime? @map("completed_at")
+
   // Relations
-  user              User        @relation("BuyerOrders", fields: [userId], references: [id], onDelete: Cascade)
-  event             Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tickets           Ticket[]
-  
+  user    User     @relation("BuyerOrders", fields: [userId], references: [id], onDelete: Cascade)
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
   @@index([userId])
   @@index([eventId])
   @@index([status])
@@ -276,38 +457,38 @@ enum TicketStatus {
 }
 
 model Ticket {
-  id                String        @id @default(uuid())
-  orderId           String        @map("order_id")
-  eventId           String        @map("event_id")
-  tierId            String        @map("tier_id")
-  currentOwnerId    String        @map("current_owner_id")
-  originalOwnerId   String        @map("original_owner_id")
-  
+  id              String @id @default(uuid())
+  orderId         String @map("order_id")
+  eventId         String @map("event_id")
+  tierId          String @map("tier_id")
+  currentOwnerId  String @map("current_owner_id")
+  originalOwnerId String @map("original_owner_id")
+
   // Ticket Details
-  ticketNumber      String        @unique @map("ticket_number")
-  qrCode            String        @unique @map("qr_code") // JWT token
-  status            TicketStatus  @default(VALID)
-  
+  ticketNumber String       @unique @map("ticket_number")
+  qrCode       String       @unique @map("qr_code") // JWT token
+  status       TicketStatus @default(VALID)
+
   // Pricing (in pence)
-  faceValue         Int           @map("face_value")
-  pricePaid         Int           @map("price_paid") // Including fees
-  
+  faceValue Int @map("face_value")
+  pricePaid Int @map("price_paid") // Including fees
+
   // Usage
-  scannedAt         DateTime?     @map("scanned_at")
-  scannedBy         String?       @map("scanned_by")
-  
+  scannedAt DateTime? @map("scanned_at")
+  scannedBy String?   @map("scanned_by")
+
   // Timestamps
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  tier              TicketTier    @relation(fields: [tierId], references: [id], onDelete: Cascade)
-  currentOwner      User          @relation("TicketOwner", fields: [currentOwnerId], references: [id], onDelete: Cascade)
-  transfers         TicketTransfer[]
-  listings          TicketListing[]
-  
+  order        Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event        Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tier         TicketTier       @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  currentOwner User             @relation("TicketOwner", fields: [currentOwnerId], references: [id], onDelete: Cascade)
+  transfers    TicketTransfer[]
+  listings     TicketListing[]
+
   @@index([orderId])
   @@index([eventId])
   @@index([currentOwnerId])
@@ -329,27 +510,27 @@ enum TransferStatus {
 }
 
 model TicketTransfer {
-  id                String         @id @default(uuid())
-  ticketId          String         @map("ticket_id")
-  senderId          String         @map("sender_id")
-  receiverId        String?        @map("receiver_id")
-  
+  id         String  @id @default(uuid())
+  ticketId   String  @map("ticket_id")
+  senderId   String  @map("sender_id")
+  receiverId String? @map("receiver_id")
+
   // Transfer Details
-  recipientEmail    String         @map("recipient_email")
-  transferToken     String         @unique @map("transfer_token")
-  status            TransferStatus @default(PENDING)
-  message           String?        @db.Text
-  
+  recipientEmail String         @map("recipient_email")
+  transferToken  String         @unique @map("transfer_token")
+  status         TransferStatus @default(PENDING)
+  message        String?        @db.Text
+
   // Timestamps
-  createdAt         DateTime       @default(now()) @map("created_at")
-  expiresAt         DateTime       @map("expires_at")
-  acceptedAt        DateTime?      @map("accepted_at")
-  
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+
   // Relations
-  ticket            Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  sender            User           @relation("TransferSender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver          User?          @relation("TransferReceiver", fields: [receiverId], references: [id])
-  
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender   User   @relation("TransferSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User?  @relation("TransferReceiver", fields: [receiverId], references: [id])
+
   @@index([ticketId])
   @@index([senderId])
   @@index([recipientEmail])
@@ -361,27 +542,26 @@ model TicketTransfer {
 // TICKET RESALE MARKETPLACE
 // ============================================
 
-
 model TicketListing {
-  id            String        @id @default(uuid())
-  ticketId      String        @unique @map("ticket_id")
-  eventId       String        @map("event_id")
-  sellerId      String        @map("seller_id")
-  buyerId       String?       @map("buyer_id")
-  
-  price         Int
-  status        ListingStatus @default(ACTIVE)
-  
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-  expiresAt     DateTime?     @map("expires_at")
-  soldAt        DateTime?     @map("sold_at")
-  
-  ticket        Ticket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  event         Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  seller        User          @relation("SellerListings", fields: [sellerId], references: [id])
-  buyer         User?         @relation("ListingBuyer", fields: [buyerId], references: [id])
-  
+  id       String  @id @default(uuid())
+  ticketId String  @unique @map("ticket_id")
+  eventId  String  @map("event_id")
+  sellerId String  @map("seller_id")
+  buyerId  String? @map("buyer_id")
+
+  price  Int
+  status ListingStatus @default(ACTIVE)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  expiresAt DateTime? @map("expires_at")
+  soldAt    DateTime? @map("sold_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  event  Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  seller User   @relation("SellerListings", fields: [sellerId], references: [id])
+  buyer  User?  @relation("ListingBuyer", fields: [buyerId], references: [id])
+
   @@index([status])
   @@index([sellerId])
   @@index([ticketId])
@@ -394,30 +574,30 @@ model TicketListing {
 // ============================================
 
 model BankAccount {
-  id                String   @id @default(uuid())
-  userId            String   @map("user_id")
-  
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+
   // Stripe Connected Account
-  stripeAccountId   String   @unique @map("stripe_account_id")
-  accountStatus     String   @map("account_status") // pending, active, restricted
-  
+  stripeAccountId String @unique @map("stripe_account_id")
+  accountStatus   String @map("account_status") // pending, active, restricted
+
   // Bank Details (encrypted/tokenized by Stripe)
-  accountHolderName String   @map("account_holder_name")
-  last4             String   // Last 4 digits
-  bankName          String?  @map("bank_name")
-  
+  accountHolderName String  @map("account_holder_name")
+  last4             String // Last 4 digits
+  bankName          String? @map("bank_name")
+
   // Verification
-  verified          Boolean  @default(false)
-  verifiedAt        DateTime? @map("verified_at")
-  
+  verified   Boolean   @default(false)
+  verifiedAt DateTime? @map("verified_at")
+
   // Timestamps
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payouts           Payout[]
-  
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payouts Payout[]
+
   @@index([userId])
   @@map("bank_accounts")
 }
@@ -431,32 +611,32 @@ enum PayoutStatus {
 }
 
 model Payout {
-  id                String       @id @default(uuid())
-  userId            String       @map("user_id")
-  bankAccountId     String       @map("bank_account_id")
-  
+  id            String @id @default(uuid())
+  userId        String @map("user_id")
+  bankAccountId String @map("bank_account_id")
+
   // Payout Details
-  amount            Int          // Amount in pence
-  currency          String       @default("GBP")
-  status            PayoutStatus @default(PENDING)
-  
+  amount   Int // Amount in pence
+  currency String       @default("GBP")
+  status   PayoutStatus @default(PENDING)
+
   // Stripe
-  stripePayoutId    String?      @unique @map("stripe_payout_id")
-  stripeTransferId  String?      @unique @map("stripe_transfer_id")
-  
+  stripePayoutId   String? @unique @map("stripe_payout_id")
+  stripeTransferId String? @unique @map("stripe_transfer_id")
+
   // Metadata
-  description       String?      @db.Text
-  failureReason     String?      @map("failure_reason")
-  
+  description   String? @db.Text
+  failureReason String? @map("failure_reason")
+
   // Timestamps
-  createdAt         DateTime     @default(now()) @map("created_at")
-  updatedAt         DateTime     @updatedAt @map("updated_at")
-  processedAt       DateTime?    @map("processed_at")
-  
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  processedAt DateTime? @map("processed_at")
+
   // Relations
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bankAccount       BankAccount  @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
-  
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([status])
   @@map("payouts")
