@@ -1,11 +1,14 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
 export async function fetchEvents() {
-  const response = await fetch(`${API_BASE_URL}/events`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch events');
-  }
-  return response.json();
-}
+    console.log("API_BASE_URL:", API_BASE_URL);
+    const url = `${API_BASE_URL}/events`;
+    console.log("Fetching:", url);
 
-export { API_BASE_URL };
+    const response = await fetch(url);
+    if (!response.ok) {
+        const body = await response.text().catch(() => "");
+        throw new Error(`Failed to fetch events (${response.status}): ${body}`);
+    }
+    return response.json();
+}
