@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
 
 export default function EventsPage() {
+    const router = useRouter();
+
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [error, setError] = useState<string | null>(null);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [isDarkMode, setIsDarkMode] = useState(true);
@@ -36,9 +39,10 @@ export default function EventsPage() {
 
     const categories = ['all', 'music', 'comedy', 'sports', 'theatre', 'food', 'art', 'conference', 'workshop'];
 
-    const filteredEvents = events.filter(event => {
+    const filteredEvents = events.filter((event: any) => {
         const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
-        const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        const matchesSearch =
+            event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             event.location.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesCategory && matchesSearch;
     });
@@ -180,17 +184,42 @@ export default function EventsPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filteredEvents.map((event: any) => {
                                 const totalPrice = Number(event.ticketPrice) + Number(event.serviceFee || 0);
-                                const availableTickets = event.capacity - event.ticketsSold;
                                 const percentSold = (event.ticketsSold / event.capacity) * 100;
                                 const isAlmostSoldOut = percentSold > 80;
 
+                                // ✅ Image fix: use heroImage or first gallery image
+                                const imageSrc =
+                                    event.heroImage ||
+                                    event.imageUrl ||
+                                    (event.galleryImages?.length ? event.galleryImages[0] : null);
+
+                                const normalizedImageSrc =
+                                    imageSrc && typeof imageSrc === 'string'
+                                        ? (imageSrc.startsWith('/') ? imageSrc : `/${imageSrc}`)
+                                        : null;
+
+                                const onCardClick = () => router.push(`/events/${event.id}`);
+                                const onCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        onCardClick();
+                                    }
+                                };
+
                                 return (
-                                    <Link key={event.id} href={`/events/${event.id}`} className="block h-full">
+                                    <div
+                                        key={event.id}
+                                        role="link"
+                                        tabIndex={0}
+                                        onClick={onCardClick}
+                                        onKeyDown={onCardKeyDown}
+                                        className="block h-full"
+                                    >
                                         <div className={`h-full group relative bg-gradient-to-br ${cardBg} rounded-2xl overflow-hidden border ${cardBorder} transition-all duration-300 hover:scale-[1.02] cursor-pointer flex flex-col`}>
                                             <div className={`relative h-56 overflow-hidden ${isDarkMode ? 'bg-gradient-to-br from-purple-900/20 to-blue-900/20' : 'bg-gradient-to-br from-purple-100 to-blue-100'}`}>
-                                                {event.imageUrl && (
+                                                {normalizedImageSrc && (
                                                     <img
-                                                        src={event.imageUrl}
+                                                        src={normalizedImageSrc}
                                                         alt={event.title}
                                                         className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
                                                     />
@@ -220,11 +249,11 @@ export default function EventsPage() {
                                                 </h3>
 
                                                 <div className="space-y-2 mb-6">
-                                                    {/* Organizer Info - NEW */}
+                                                    {/* Organizer Info - now safe (no nested <a> inside <a>) */}
                                                     {event.organizer && (
                                                         <Link
                                                             href={`/organizers/${event.organizer.username}`}
-                                                            onClick={(e) => e.stopPropagation()} // Prevents card click
+                                                            onClick={(e) => e.stopPropagation()}
                                                             className="flex items-center gap-2 mb-3 group/organizer"
                                                         >
                                                             <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-800 flex-shrink-0">
@@ -265,12 +294,14 @@ export default function EventsPage() {
                                                         <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                         </svg>
-                                                        <span>{new Date(event.eventDate).toLocaleDateString('en-GB', {
-                                                            weekday: 'short',
-                                                            day: 'numeric',
-                                                            month: 'short',
-                                                            year: 'numeric'
-                                                        })}</span>
+                                                        <span>
+                                                            {new Date(event.eventDate).toLocaleDateString('en-GB', {
+                                                                weekday: 'short',
+                                                                day: 'numeric',
+                                                                month: 'short',
+                                                                year: 'numeric'
+                                                            })}
+                                                        </span>
                                                     </div>
                                                 </div>
 
@@ -284,7 +315,13 @@ export default function EventsPage() {
                                                             <p className={`text-xs ${textTertiary} mt-1`}>inc. fees</p>
                                                         </div>
 
-                                                        <button className={`px-6 py-2.5 ${isDarkMode ? 'bg-white text-black hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-full font-semibold transition-all hover:scale-105`}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                router.push(`/events/${event.id}`);
+                                                            }}
+                                                            className={`px-6 py-2.5 ${isDarkMode ? 'bg-white text-black hover:bg-gray-100' : 'bg-gray-900 text-white hover:bg-gray-800'} rounded-full font-semibold transition-all hover:scale-105`}
+                                                        >
                                                             Get tickets
                                                         </button>
                                                     </div>
@@ -293,13 +330,14 @@ export default function EventsPage() {
 
                                             <div className={`absolute inset-0 ${isDarkMode ? 'bg-gradient-to-t from-purple-900/0 to-purple-900/0 group-hover:from-purple-900/10 group-hover:to-blue-900/10' : 'bg-gradient-to-t from-purple-50/0 to-blue-50/0 group-hover:from-purple-50/50 group-hover:to-blue-50/50'} transition-all duration-300 pointer-events-none`}></div>
                                         </div>
-                                    </Link>
+                                    </div>
                                 );
                             })}
                         </div>
                     </>
                 )}
             </main>
+
             {/* Footer */}
             <Footer />
         </div>
