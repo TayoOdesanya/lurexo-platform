@@ -2,8 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Mail, Lock, AlertCircle, Check, ArrowLeft, Ticket, Zap, TrendingUp, Users, Shield } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  AlertCircle,
+  Check,
+  ArrowLeft,
+  Ticket,
+  Zap,
+  TrendingUp,
+  Users,
+  Shield
+} from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export default function OrganizerLoginPage() {
   const [email, setEmail] = useState('');
@@ -13,14 +27,25 @@ export default function OrganizerLoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
-  
+
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo =
+    searchParams.get('redirect') || '/organizer/dashboard';
+
+  const { login, user } = useAuth();
 
   useEffect(() => {
     setMounted(true);
-    
+
+    // If already logged in, go to redirect target
+    if (user) {
+      router.replace(redirectTo);
+      return;
+    }
+
     // Auto-focus email on desktop only (prevents keyboard popup on mobile)
-    if (window.innerWidth >= 1024) {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
       setTimeout(() => {
         document.getElementById('email')?.focus();
       }, 100);
@@ -32,7 +57,7 @@ export default function OrganizerLoginPage() {
       setEmail(remembered);
       setRememberMe(true);
     }
-  }, []);
+  }, [user, router, redirectTo]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,39 +65,51 @@ export default function OrganizerLoginPage() {
     setIsLoading(true);
 
     // Haptic feedback on mobile
-    if ('vibrate' in navigator) {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(10);
     }
 
     try {
-      // TODO: Replace with actual API call
-      // Simulating login
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // For demo purposes - accept any email/password
-      // In production, validate credentials via API
-      
+      const result = await login(email, password);
+
+      if (!result.success) {
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+          navigator.vibrate([100, 50, 100]);
+        }
+        setError(result.message || 'Invalid email or password');
+        setIsLoading(false);
+        return;
+      }
+
       // Save email if remember me is checked
       if (rememberMe) {
         localStorage.setItem('rememberedOrganizerEmail', email);
       } else {
         localStorage.removeItem('rememberedOrganizerEmail');
       }
-      
+
       // Success haptic
-      if ('vibrate' in navigator) {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate([10, 50, 10]);
       }
-      
-      // Redirect to organizer dashboard
-      router.push('/organizer/dashboard');
-      
+
+      // ✅ Optional guard: if user logs in but isn't verified, push to verify-email
+      // (Adjust based on whether your backend blocks login until verified)
+      const userDataRaw = localStorage.getItem('userData');
+      const userData = userDataRaw ? JSON.parse(userDataRaw) : null;
+
+      if (userData && userData.emailVerified === false) {
+        router.replace('/verify-email?email=' + encodeURIComponent(email));
+        return;
+      }
+
+      // ✅ Redirect to requested destination
+      router.replace(redirectTo);
     } catch (err) {
-      // Error haptic
-      if ('vibrate' in navigator) {
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
         navigator.vibrate([100, 50, 100]);
       }
-      setError('Invalid email or password');
+      setError('Login failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -106,7 +143,7 @@ export default function OrganizerLoginPage() {
                 </div>
               </div>
             </Link>
-            
+
             <div className="flex items-center gap-2 sm:gap-4">
               <span className="text-gray-400 text-xs sm:text-sm hidden xs:inline">New organizer?</span>
               <Link href="/contact">
@@ -208,14 +245,25 @@ export default function OrganizerLoginPage() {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="sr-only"
                     />
-                    <div className={`w-5 h-5 rounded border-2 ${rememberMe ? 'bg-purple-500 border-purple-500' : 'bg-transparent border-gray-600 group-hover:border-gray-500'} transition-colors flex items-center justify-center`}>
+                    <div
+                      className={`w-5 h-5 rounded border-2 ${
+                        rememberMe
+                          ? 'bg-purple-500 border-purple-500'
+                          : 'bg-transparent border-gray-600 group-hover:border-gray-500'
+                      } transition-colors flex items-center justify-center`}
+                    >
                       {rememberMe && <Check className="w-3 h-3 text-white" />}
                     </div>
                   </div>
-                  <span className="ml-1 text-sm text-gray-300 group-hover:text-white transition-colors">Remember me</span>
+                  <span className="ml-1 text-sm text-gray-300 group-hover:text-white transition-colors">
+                    Remember me
+                  </span>
                 </label>
 
-                <Link href="/reset-password" className="text-sm text-purple-400 hover:text-purple-300 transition-colors py-2 px-2 -mr-2">
+                <Link
+                  href="/reset-password"
+                  className="text-sm text-purple-400 hover:text-purple-300 transition-colors py-2 px-2 -mr-2"
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -273,7 +321,9 @@ export default function OrganizerLoginPage() {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-lg mb-1">Quick Setup</h3>
-                <p className="text-white/80 text-sm">Create and publish events in minutes with our intuitive dashboard</p>
+                <p className="text-white/80 text-sm">
+                  Create and publish events in minutes with our intuitive dashboard
+                </p>
               </div>
             </div>
 
@@ -283,7 +333,9 @@ export default function OrganizerLoginPage() {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-lg mb-1">Real-Time Analytics</h3>
-                <p className="text-white/80 text-sm">Track sales, revenue, and audience insights as they happen</p>
+                <p className="text-white/80 text-sm">
+                  Track sales, revenue, and audience insights as they happen
+                </p>
               </div>
             </div>
 
@@ -293,7 +345,9 @@ export default function OrganizerLoginPage() {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-lg mb-1">Grow Your Audience</h3>
-                <p className="text-white/80 text-sm">Build lasting relationships with fans through data-driven insights</p>
+                <p className="text-white/80 text-sm">
+                  Build lasting relationships with fans through data-driven insights
+                </p>
               </div>
             </div>
 
@@ -303,7 +357,9 @@ export default function OrganizerLoginPage() {
               </div>
               <div>
                 <h3 className="text-white font-semibold text-lg mb-1">AI Bot Prevention</h3>
-                <p className="text-white/80 text-sm">Protect your events from scalpers with industry-leading security</p>
+                <p className="text-white/80 text-sm">
+                  Protect your events from scalpers with industry-leading security
+                </p>
               </div>
             </div>
           </div>
@@ -329,9 +385,15 @@ export default function OrganizerLoginPage() {
       {/* Add shake animation for errors */}
       <style jsx>{`
         @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-          20%, 40%, 60%, 80% { transform: translateX(4px); }
+          0%, 100% {
+            transform: translateX(0);
+          }
+          10%, 30%, 50%, 70%, 90% {
+            transform: translateX(-4px);
+          }
+          20%, 40%, 60%, 80% {
+            transform: translateX(4px);
+          }
         }
         .animate-shake {
           animation: shake 0.5s ease-in-out;

@@ -41,7 +41,10 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-export default function OrganizerDashboard() {
+import { withAuth, useAuth } from '@/context/AuthContext';
+
+function OrganizerDashboard() {
+  const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('30days');
 
   // Mock data
@@ -206,7 +209,11 @@ export default function OrganizerDashboard() {
       {/* Welcome Section */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-white font-bold text-2xl sm:text-3xl mb-2">
-          Welcome back, {organizerName} 👋
+          WelcomeWelcome back, {user?.name} 👋
+<p className="text-gray-500 text-xs mt-1">
+  Organizer ID: {user?.id}
+</p>
+
         </h1>
         <p className="text-gray-400 text-sm sm:text-base">
           Here's what's happening with your events today
@@ -908,3 +915,5 @@ export default function OrganizerDashboard() {
       </div>
   );
 }
+
+export default withAuth(OrganizerDashboard);

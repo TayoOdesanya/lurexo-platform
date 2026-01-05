@@ -47,12 +47,14 @@ export default function VerifyEmailPage() {
     try {
       const result = await verifyEmail(t);
 
-      if (result.success) {
-        setVerified(true);
-        // Redirect to dashboard after 3 seconds
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 3000);
+if (result.success) {
+  setVerified(true);
+
+  setTimeout(() => {
+    router.replace(
+      '/login?redirect=' + encodeURIComponent('/organizer/dashboard')
+    );
+  }, 2000);
       } else {
         setError(result.message || 'Verification failed');
       }
@@ -138,7 +140,7 @@ export default function VerifyEmailPage() {
                 Your account has been successfully verified. Redirecting you to your dashboard...
               </p>
 
-              <Link href="/dashboard">
+              <Link href="/organizer/dashboard">
                 <button className="w-full py-3 bg-gradient-to-r from-purple-500 to-blue-500 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all flex items-center justify-center gap-2">
                   Go to Dashboard
                   <ArrowRight className="w-5 h-5" />
