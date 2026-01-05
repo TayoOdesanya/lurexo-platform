@@ -97,13 +97,15 @@ export default function HomePage() {
                 )}
               </button>
 
-              <button className={`hidden md:block ${textSecondary} hover:${text} transition-colors`}>
-                Sign in
-              </button>
-
-              <button className="hidden md:block bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full font-semibold hover:scale-105 transition-transform">
-                Get started
-              </button>
+              <Link
+  href="/login" className={`hidden md:block ${textSecondary} hover:${text} transition-colors`}>
+  Sign in
+</Link>
+<Link
+  href="/signup"
+  className="hidden md:block bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full font-semibold hover:scale-105 transition-transform">
+  Get started
+</Link>
 
               {/* Mobile Menu Button */}
               <button
@@ -122,7 +124,10 @@ export default function HomePage() {
               <Link href="/for-organizers" className={`block ${text} hover:text-purple-400`}>For Organizers</Link>
               <Link href="/how-it-works" className={`block ${text} hover:text-purple-400`}>How it Works</Link>
               <Link href="/support" className={`block ${text} hover:text-purple-400`}>Support</Link>
-              <button className={`block w-full text-left ${text}`}>Sign in</button>
+              <Link href="/login" className={`block w-full text-left ${text}`}>
+  Sign in
+</Link>
+
               <button className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-2.5 rounded-full font-semibold">
                 Get started
               </button>

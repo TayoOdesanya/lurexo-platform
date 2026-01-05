@@ -38,3 +38,18 @@ lerna-debug.log*
 # Misc
 .cache/
 .temp/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.wsuo
+DocumentLayout*.json
+VSWorkspaceState.json
+
+# Local workspace db files (VS/VS Code extensions sometimes create these)
+*.sqlite
+*.sqlite-journal
+

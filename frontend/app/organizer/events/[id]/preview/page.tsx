@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Edit,
-  Globe,
   Eye,
   Calendar,
   MapPin,
@@ -16,125 +16,370 @@ import {
   Shield,
   ChevronDown,
   ChevronUp,
-  Bookmark,
-  Share2,
   Heart,
-  DollarSign,
-  Ticket,
+  Share2,
   AlertCircle,
   Zap,
-  ExternalLink
 } from 'lucide-react';
+import { EventsApi, type ApiEvent } from '@/lib/api';
 
-// Mock event data - in production this would come from the event being previewed
-const MOCK_EVENT = {
-  id: 'preview-event',
-  name: 'Summer Music Festival 2025',
-  category: 'Music',
-  shortDescription: 'The biggest music festival of the year featuring world-class artists and unforgettable performances.',
-  longDescription: 'Get ready for the biggest music event of the summer! Our Summer Music Festival brings together incredible talent, stunning production, and an atmosphere like no other. Dance under the stars, enjoy gourmet food trucks, and create memories that will last a lifetime.',
-  highlights: [
-    'Headlining performances by international artists',
-    'Multiple stages with diverse genres',
-    'Gourmet food & beverage vendors',
-    'VIP lounges with premium amenities'
-  ],
-  eventDate: '2025-08-15T19:00:00Z',
-  eventEndDate: '2025-08-15T23:00:00Z',
-  doorsOpen: '2025-08-15T18:00:00Z',
-  venue: {
-    name: 'Hyde Park',
-    address: 'Hyde Park, London W2 2UH',
-    capacity: 65000
-  },
-  heroImage: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200',
-  gallery: [
-    'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=800',
-    'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
-    'https://images.unsplash.com/photo-1506157786151-b8491531f063?w=800'
-  ],
-  ticketTiers: [
-    {
-      id: '1',
-      name: 'General Admission',
-      price: 85.00,
-      serviceFee: 8.50,
-      quantity: 5000,
-      available: 1250,
-      description: 'General standing area with access to all stages',
-      features: ['General standing area', 'Access to food courts', 'Standard facilities']
-    },
-    {
-      id: '2',
-      name: 'VIP Experience',
-      price: 185.00,
-      serviceFee: 18.50,
-      quantity: 500,
-      available: 85,
-      description: 'Premium experience with exclusive benefits',
-      features: ['Premium viewing area', 'VIP lounge access', 'Complimentary drinks', 'Private restrooms']
-    }
-  ],
-  organizer: {
-    name: 'Live Nation UK',
-    verified: true
-  },
-  ageRestriction: '18+',
-  refundPolicy: 'Full refund if event is cancelled. No refunds for change of mind. Free ticket transfers available anytime.',
-  allowResale: true,
-  resaleCap: 110,
-  allowTransfers: true,
-  visibility: 'draft',
-  trainStations: ['Hyde Park Corner Station (5 min walk)', 'Marble Arch Station (8 min walk)'],
-  parkingInfo: 'Limited street parking available. We recommend using public transport.',
-  accessibilityNotes: 'Wheelchair accessible. Dedicated viewing areas available. Accessible toilets on-site.',
-  faqs: [
-    { question: 'What time should I arrive?', answer: 'Doors open at 6:00 PM. We recommend arriving early to avoid queues.' },
-    { question: 'Can I bring food and drinks?', answer: 'No outside food or drinks allowed. Wide variety of vendors available inside.' },
-    { question: 'Is there an age restriction?', answer: 'This event is 18+ only. Valid ID required for entry.' }
-  ]
+// ------- UI model that matches what your preview page expects
+type UiTicketTier = {
+  id: string;
+  name: string;
+  price: number;      // pounds
+  serviceFee: number; // pounds
+  quantity: number;
+  available: number;
+  description?: string;
+  features?: string[];
 };
 
+type UiEvent = {
+  id: string;
+  name: string;
+  category: string;
+  shortDescription: string;
+  longDescription: string;
+  highlights: string[];
+
+  eventDate: string;
+  eventEndDate?: string;
+  doorsOpen?: string;
+
+  venue: { name: string; address: string; capacity?: number };
+
+  heroImage?: string;
+  gallery: string[];
+
+  ticketTiers: UiTicketTier[];
+
+  organizer: { name: string; verified: boolean };
+
+  ageRestriction: string;
+  refundPolicy: string;
+
+  allowResale: boolean;
+  resaleCap: number;
+  allowTransfers: boolean;
+  visibility: 'draft' | 'published' | 'hidden';
+
+  trainStations: string[];
+  parkingInfo: string;
+  accessibilityNotes: string;
+
+  faqs: { question: string; answer: string }[];
+};
+
+// If your DB stores money in pence, keep this conversion.
+// If your API already returns pounds, change to: return value;
+function moneyToPounds(value: number) {
+  return value / 100;
+}
+
+function safeNumber(v: any, fallback = 0) {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return Number.isFinite(n) ? n : fallback;
+}
+
+/**
+ * Normalise whatever the backend returns into what the preview UI wants.
+ * This keeps the page stable even if /events/:id response differs slightly.
+ */
+function toUiEvent(e: ApiEvent): UiEvent {
+  const title = e.title ?? 'Untitled event';
+  const desc = e.description ?? '';
+  const short = desc.split('\n')[0] || desc.slice(0, 160);
+  const long = desc;
+
+  const gallery = e.galleryImages ?? [];
+  const hero =
+    e.heroImage ||
+    e.imageUrl ||
+    (gallery.length ? gallery[0] : undefined);
+
+  // Venue/address: your Prisma has venue + address + city + postalCode; list page has "location"
+  const address =
+    e.location ||
+    [e.address, e.city, e.postalCode, e.country].filter(Boolean).join(', ') ||
+    '';
+
+  const capacity = safeNumber((e as any).capacity ?? (e as any).totalCapacity, 0);
+  const ticketsSold = safeNumber(e.ticketsSold, 0);
+
+  // Ticket tiers: prefer backend ticketTiers, else fallback to single tier using ticketPrice/serviceFee (from your list page)
+  let tiers: UiTicketTier[] = [];
+  if (e.ticketTiers?.length) {
+    tiers = e.ticketTiers.map(t => {
+      // NOTE: ticket tier price is Int in prisma -> likely pence
+      const price = moneyToPounds(safeNumber((t as any).price, 0));
+      const fee = 0; // not in schema yet; add later if you implement per-tier fees
+      const qty = safeNumber((t as any).quantity, 0);
+      const sold = safeNumber((t as any).quantitySold, 0);
+      const available = Math.max(0, qty - sold);
+
+      return {
+        id: (t as any).id,
+        name: (t as any).name ?? 'Tier',
+        description: (t as any).description ?? undefined,
+        price,
+        serviceFee: fee,
+        quantity: qty,
+        available,
+      };
+    });
+  } else {
+    const ticketPrice = safeNumber(e.ticketPrice, 0);
+    const serviceFee = safeNumber(e.serviceFee, 0);
+    tiers = [
+      {
+        id: 'default',
+        name: 'General Admission',
+        price: ticketPrice,
+        serviceFee,
+        quantity: capacity || 0,
+        available: Math.max(0, (capacity || 0) - ticketsSold),
+        description: 'Standard entry',
+      },
+    ];
+  }
+
+  const status = (e.status ?? 'DRAFT').toUpperCase();
+  const visibility: UiEvent['visibility'] =
+    status === 'PUBLISHED' ? 'published' : 'draft';
+
+  return {
+    id: e.id,
+    name: title,
+    category: (e.category ?? 'event').toString(),
+    shortDescription: short,
+    longDescription: long,
+    highlights: [], // not in schema yet; add later if you store JSON or a table
+
+    eventDate: e.eventDate ?? new Date().toISOString(),
+    doorsOpen: e.doorsOpen ?? undefined,
+    eventEndDate: (e as any).eventEnd ?? undefined,
+
+    venue: {
+      name: e.venue ?? 'Venue',
+      address,
+      capacity: capacity || undefined,
+    },
+
+    heroImage: hero,
+    gallery,
+
+    ticketTiers: tiers,
+
+    organizer: {
+      name: e.organizer?.name ?? 'Organizer',
+      verified: !!e.organizer?.verified,
+    },
+
+    ageRestriction: '18+',
+    refundPolicy: 'Refund policy not set yet.',
+
+    allowResale: e.allowResale ?? true,
+    resaleCap: safeNumber(e.resaleCapValue, 110),
+    allowTransfers: true,
+    visibility,
+
+    trainStations: [],
+    parkingInfo: '',
+    accessibilityNotes: '',
+
+    faqs: [],
+  };
+}
+
 export default function EventPreviewPage() {
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
+  const router = useRouter();
+
+  const [eventRaw, setEventRaw] = useState<ApiEvent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<'saving' | 'publishing' | 'deleting' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const eventUi = useMemo(() => (eventRaw ? toUiEvent(eventRaw) : null), [eventRaw]);
+
   const [expandedSections, setExpandedSections] = useState({
     description: true,
     venue: true,
     transport: false,
     faq: false,
     refund: false,
-    gallery: false
+    gallery: false,
   });
 
-  const [selectedTier, setSelectedTier] = useState(MOCK_EVENT.ticketTiers[0]);
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  useEffect(() => {
+    if (!id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const dto = await EventsApi.getById(id);
+        if (cancelled) return;
+
+        setEventRaw(dto);
+
+        // default tier selection
+        const ui = toUiEvent(dto);
+        setSelectedTierId(ui.ticketTiers[0]?.id ?? null);
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(e?.message ?? 'Failed to load event');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const selectedTier = useMemo(() => {
+    if (!eventUi) return null;
+    return eventUi.ticketTiers.find((t) => t.id === selectedTierId) ?? eventUi.ticketTiers[0] ?? null;
+  }, [eventUi, selectedTierId]);
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const ticketsSold = MOCK_EVENT.ticketTiers.reduce((sum, tier) => sum + (tier.quantity - tier.available), 0);
-  const totalCapacity = MOCK_EVENT.ticketTiers.reduce((sum, tier) => sum + tier.quantity, 0);
-  const percentSold = (ticketsSold / totalCapacity) * 100;
-  const availableTickets = MOCK_EVENT.ticketTiers.reduce((sum, tier) => sum + tier.available, 0);
+  const ticketsSold = useMemo(() => {
+    if (!eventRaw) return 0;
+    const cap = safeNumber((eventRaw as any).capacity ?? (eventRaw as any).totalCapacity, 0);
+    const sold = safeNumber(eventRaw.ticketsSold, 0);
+    return Math.min(sold, cap || sold);
+  }, [eventRaw]);
+
+  const totalCapacity = useMemo(() => {
+    if (!eventRaw) return 0;
+    return safeNumber((eventRaw as any).capacity ?? (eventRaw as any).totalCapacity, 0);
+  }, [eventRaw]);
+
+  const percentSold = totalCapacity > 0 ? (ticketsSold / totalCapacity) * 100 : 0;
+
+  const availableTickets = useMemo(() => {
+    if (!eventUi) return 0;
+    return eventUi.ticketTiers.reduce((sum, tier) => sum + (tier.available ?? 0), 0);
+  }, [eventUi]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
+    return date.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     });
   };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-GB', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return date.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
-  const totalPrice = (selectedTier.price + selectedTier.serviceFee) * quantity;
+  const totalPrice = selectedTier ? (selectedTier.price + selectedTier.serviceFee) * quantity : 0;
+
+  async function saveDraft() {
+    if (!id || !eventRaw) return;
+    try {
+      setBusy('saving');
+      setError(null);
+
+      // Adjust payload based on backend DTO. This works if backend accepts status changes.
+      const updated = await EventsApi.patch(id, { status: 'DRAFT' } as any);
+      setEventRaw(updated);
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to save');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function publish() {
+    if (!id) return;
+    try {
+      setBusy('publishing');
+      setError(null);
+
+      // Preferred: POST /events/:id/publish
+      const updated = await EventsApi.publish(id);
+      setEventRaw(updated);
+      router.push('/organizer/dashboard');
+    } catch (ePublish: any) {
+      // Fallback: PATCH status to PUBLISHED
+      try {
+        const updated = await EventsApi.patch(id, { status: 'PUBLISHED' } as any);
+        setEventRaw(updated);
+        router.push('/organizer/dashboard');
+      } catch (e2: any) {
+        setError(e2?.message ?? ePublish?.message ?? 'Failed to publish');
+      }
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    if (!id) return;
+    const ok = window.confirm('Delete this event? This cannot be undone.');
+    if (!ok) return;
+
+    try {
+      setBusy('deleting');
+      setError(null);
+
+      await EventsApi.delete(id);
+      router.push('/organizer/dashboard');
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to delete');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-gray-400">Loading event preview…</div>
+      </div>
+    );
+  }
+
+  if (!eventUi) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center px-6">
+        <div className="max-w-xl w-full bg-gray-900 border border-gray-800 rounded-xl p-6">
+          <h1 className="text-white font-bold text-lg mb-2">Couldn’t load event</h1>
+          <p className="text-gray-400 text-sm mb-4">{error ?? 'Unknown error'}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-white text-black rounded-lg font-semibold"
+            >
+              Retry
+            </button>
+            <Link href="/organizer/dashboard" className="px-4 py-2 bg-gray-800 text-white rounded-lg font-semibold">
+              Back to dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black">
@@ -148,6 +393,7 @@ export default function EventPreviewPage() {
               <p className="text-xs opacity-90">This is how buyers will see your event</p>
             </div>
           </div>
+
           <div className="flex items-center gap-2">
             <Link href="/organizer/create-event">
               <button className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-semibold transition-colors">
@@ -155,15 +401,43 @@ export default function EventPreviewPage() {
                 <span className="hidden sm:inline">Edit Event</span>
               </button>
             </Link>
-            <Link href="/organizer/dashboard">
-              <button className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 hover:bg-gray-100 rounded-lg text-sm font-semibold transition-colors">
-                <Zap className="w-4 h-4" />
-                <span>Publish</span>
-              </button>
-            </Link>
+
+            <button
+              onClick={saveDraft}
+              disabled={busy === 'saving'}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <span>{busy === 'saving' ? 'Saving…' : 'Save'}</span>
+            </button>
+
+            <button
+              onClick={publish}
+              disabled={busy === 'publishing'}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-orange-600 hover:bg-gray-100 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <Zap className="w-4 h-4" />
+              <span>{busy === 'publishing' ? 'Publishing…' : 'Publish'}</span>
+            </button>
+
+            <button
+              onClick={remove}
+              disabled={busy === 'deleting'}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+            >
+              <span>{busy === 'deleting' ? 'Deleting…' : 'Delete'}</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-4">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-300 text-sm">
+            {error}
+          </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="bg-gray-900 border-b border-gray-800 sticky top-[52px] z-40 backdrop-blur-lg bg-opacity-95">
@@ -195,16 +469,16 @@ export default function EventPreviewPage() {
 
       {/* Hero Image */}
       <div className="relative h-[35vh] sm:h-[45vh] md:h-[55vh] overflow-hidden">
-        <img 
-          src={MOCK_EVENT.heroImage} 
-          alt={MOCK_EVENT.name} 
-          className="w-full h-full object-cover"
-        />
+        {eventUi.heroImage ? (
+          <img src={eventUi.heroImage} alt={eventUi.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gray-900" />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
 
         <div className="absolute top-4 left-4">
           <span className="inline-block px-3 py-1.5 bg-purple-600 text-white rounded-full text-xs font-bold uppercase backdrop-blur-sm">
-            {MOCK_EVENT.category}
+            {eventUi.category}
           </span>
         </div>
 
@@ -223,19 +497,22 @@ export default function EventPreviewPage() {
           {/* Left Column */}
           <div className="lg:col-span-2">
             <div className="max-w-[900px] space-y-6 lg:space-y-8">
-              
               {/* Title Section */}
               <div className="space-y-3">
                 <h1 className="text-white font-bold text-2xl sm:text-3xl lg:text-4xl leading-tight">
-                  {MOCK_EVENT.name}
+                  {eventUi.name}
                 </h1>
 
                 <div className="flex items-center gap-2">
                   <span className="text-gray-400 text-sm">by</span>
-                  <span className="text-white text-sm font-semibold">{MOCK_EVENT.organizer.name}</span>
-                  {MOCK_EVENT.organizer.verified && (
+                  <span className="text-white text-sm font-semibold">{eventUi.organizer.name}</span>
+                  {eventUi.organizer.verified && (
                     <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <path
+                        fillRule="evenodd"
+                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   )}
                 </div>
@@ -249,7 +526,7 @@ export default function EventPreviewPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-gray-400 text-xs font-medium mb-0.5">Date</div>
-                    <div className="text-white font-bold text-base">{formatDate(MOCK_EVENT.eventDate)}</div>
+                    <div className="text-white font-bold text-base">{formatDate(eventUi.eventDate)}</div>
                   </div>
                 </div>
 
@@ -259,7 +536,7 @@ export default function EventPreviewPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-gray-400 text-xs font-medium mb-0.5">Start Time</div>
-                    <div className="text-white font-bold text-base">{formatTime(MOCK_EVENT.eventDate)}</div>
+                    <div className="text-white font-bold text-base">{formatTime(eventUi.eventDate)}</div>
                   </div>
                 </div>
 
@@ -269,7 +546,7 @@ export default function EventPreviewPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-gray-400 text-xs font-medium mb-0.5">Venue</div>
-                    <div className="text-white font-bold text-base truncate">{MOCK_EVENT.venue.name}</div>
+                    <div className="text-white font-bold text-base truncate">{eventUi.venue.name}</div>
                   </div>
                 </div>
 
@@ -279,7 +556,7 @@ export default function EventPreviewPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="text-gray-400 text-xs font-medium mb-0.5">Age</div>
-                    <div className="text-white font-bold text-base">{MOCK_EVENT.ageRestriction}</div>
+                    <div className="text-white font-bold text-base">{eventUi.ageRestriction}</div>
                   </div>
                 </div>
               </div>
@@ -322,7 +599,7 @@ export default function EventPreviewPage() {
                 </button>
                 {expandedSections.refund && (
                   <div className="px-4 pb-4 border-t border-gray-800">
-                    <p className="text-sm text-gray-400 mt-3 leading-relaxed">{MOCK_EVENT.refundPolicy}</p>
+                    <p className="text-sm text-gray-400 mt-3 leading-relaxed">{eventUi.refundPolicy}</p>
                   </div>
                 )}
               </div>
@@ -330,9 +607,9 @@ export default function EventPreviewPage() {
               {/* Description */}
               <div>
                 <h2 className="text-2xl font-bold text-white mb-4">About This Event</h2>
-                <p className="text-gray-400 leading-relaxed mb-3">{MOCK_EVENT.shortDescription}</p>
+                <p className="text-gray-400 leading-relaxed mb-3">{eventUi.shortDescription}</p>
                 {expandedSections.description && (
-                  <p className="text-gray-400 leading-relaxed mb-3">{MOCK_EVENT.longDescription}</p>
+                  <p className="text-gray-400 leading-relaxed mb-3">{eventUi.longDescription}</p>
                 )}
                 <button
                   onClick={() => toggleSection('description')}
@@ -341,19 +618,6 @@ export default function EventPreviewPage() {
                   {expandedSections.description ? 'Show less' : 'Read more'}
                   {expandedSections.description ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
-              </div>
-
-              {/* What to Expect */}
-              <div>
-                <h2 className="text-2xl font-bold text-white mb-4">What to Expect</h2>
-                <ul className="space-y-3">
-                  {MOCK_EVENT.highlights.map((highlight, idx) => (
-                    <li key={idx} className="flex items-start gap-3">
-                      <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-gray-400">{highlight}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
 
               {/* Venue */}
@@ -368,64 +632,12 @@ export default function EventPreviewPage() {
                 {expandedSections.venue && (
                   <div className="p-4 space-y-4">
                     <div>
-                      <h3 className="text-white font-semibold mb-2">{MOCK_EVENT.venue.name}</h3>
-                      <p className="text-gray-400 text-sm">{MOCK_EVENT.venue.address}</p>
+                      <h3 className="text-white font-semibold mb-2">{eventUi.venue.name}</h3>
+                      <p className="text-gray-400 text-sm">{eventUi.venue.address}</p>
                     </div>
                     <div className="w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center">
                       <MapPin className="w-12 h-12 text-gray-500" />
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Transport */}
-              <div className="border border-gray-800 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => toggleSection('transport')}
-                  className="w-full p-4 bg-gray-900 flex items-center justify-between hover:opacity-80 transition"
-                >
-                  <h2 className="text-xl font-bold text-white">Getting There</h2>
-                  {expandedSections.transport ? <ChevronUp className="w-5 h-5 text-white" /> : <ChevronDown className="w-5 h-5 text-white" />}
-                </button>
-                {expandedSections.transport && (
-                  <div className="p-4 space-y-4">
-                    <div>
-                      <h3 className="text-white font-semibold mb-3">Nearest Train Stations</h3>
-                      <ul className="space-y-2">
-                        {MOCK_EVENT.trainStations.map((station, idx) => (
-                          <li key={idx} className="text-gray-400 text-sm">{station}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold mb-3">Parking</h3>
-                      <p className="text-gray-400 text-sm">{MOCK_EVENT.parkingInfo}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-semibold mb-3">Accessibility</h3>
-                      <p className="text-gray-400 text-sm">{MOCK_EVENT.accessibilityNotes}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* FAQ */}
-              <div className="border border-gray-800 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => toggleSection('faq')}
-                  className="w-full p-4 bg-gray-900 flex items-center justify-between hover:opacity-80 transition"
-                >
-                  <h2 className="text-xl font-bold text-white">FAQ</h2>
-                  {expandedSections.faq ? <ChevronUp className="w-5 h-5 text-white" /> : <ChevronDown className="w-5 h-5 text-white" />}
-                </button>
-                {expandedSections.faq && (
-                  <div className="p-4 space-y-4">
-                    {MOCK_EVENT.faqs.map((faq, idx) => (
-                      <div key={idx}>
-                        <h3 className="text-white font-semibold mb-2">{faq.question}</h3>
-                        <p className="text-gray-400 text-sm">{faq.answer}</p>
-                      </div>
-                    ))}
                   </div>
                 )}
               </div>
@@ -441,11 +653,15 @@ export default function EventPreviewPage() {
                 </button>
                 {expandedSections.gallery && (
                   <div className="p-4">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                      {MOCK_EVENT.gallery.map((img, idx) => (
-                        <img key={idx} src={img} alt={`Gallery ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg" />
-                      ))}
-                    </div>
+                    {eventUi.gallery.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No gallery images yet.</p>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {eventUi.gallery.map((img, idx) => (
+                          <img key={idx} src={img} alt={`Gallery ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg" />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -469,12 +685,12 @@ export default function EventPreviewPage() {
               <div>
                 <h3 className="text-xl font-bold text-white mb-4">Select Tickets</h3>
                 <div className="space-y-3">
-                  {MOCK_EVENT.ticketTiers.map((tier) => (
+                  {eventUi.ticketTiers.map((tier) => (
                     <button
                       key={tier.id}
-                      onClick={() => setSelectedTier(tier)}
+                      onClick={() => setSelectedTierId(tier.id)}
                       className={`w-full p-4 rounded-xl border-2 text-left transition ${
-                        selectedTier.id === tier.id
+                        selectedTier?.id === tier.id
                           ? 'border-purple-500 bg-purple-900/20'
                           : 'border-gray-700 hover:border-gray-600'
                       }`}
@@ -521,11 +737,11 @@ export default function EventPreviewPage() {
               <div className="pt-4 border-t border-gray-700 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Tickets ({quantity}x)</span>
-                  <span className="text-white">£{(selectedTier.price * quantity).toFixed(2)}</span>
+                  <span className="text-white">£{selectedTier ? (selectedTier.price * quantity).toFixed(2) : '0.00'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-400">Service fee</span>
-                  <span className="text-white">£{(selectedTier.serviceFee * quantity).toFixed(2)}</span>
+                  <span className="text-white">£{selectedTier ? (selectedTier.serviceFee * quantity).toFixed(2) : '0.00'}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-700">
                   <span className="text-white">Total</span>
@@ -563,39 +779,41 @@ export default function EventPreviewPage() {
               <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-white font-semibold text-sm">Hero Image</p>
-                <p className="text-gray-400 text-xs">High quality image uploaded</p>
+                <p className="text-gray-400 text-xs">{eventUi.heroImage ? 'Image uploaded' : 'No hero image yet'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-white font-semibold text-sm">Event Details</p>
-                <p className="text-gray-400 text-xs">All required fields completed</p>
+                <p className="text-gray-400 text-xs">{eventUi.name ? 'Title set' : 'Title missing'}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-white font-semibold text-sm">Ticket Types</p>
-                <p className="text-gray-400 text-xs">{MOCK_EVENT.ticketTiers.length} tiers configured</p>
+                <p className="text-gray-400 text-xs">{eventUi.ticketTiers.length} tiers configured</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Check className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-white font-semibold text-sm">Policies Set</p>
-                <p className="text-gray-400 text-xs">Refund and transfer policies defined</p>
+                <p className="text-gray-400 text-xs">Refund/transfer policies can be added later</p>
               </div>
             </div>
           </div>
           <div className="mt-6 flex items-center justify-between">
             <p className="text-gray-400 text-sm">Ready to publish? Your event looks great!</p>
-            <Link href="/organizer/dashboard">
-              <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-bold transition-colors">
-                <Zap className="w-5 h-5" />
-                <span>Publish Event</span>
-              </button>
-            </Link>
+            <button
+              onClick={publish}
+              disabled={busy === 'publishing'}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-bold transition-colors disabled:opacity-60"
+            >
+              <Zap className="w-5 h-5" />
+              <span>{busy === 'publishing' ? 'Publishing…' : 'Publish Event'}</span>
+            </button>
           </div>
         </div>
       </div>

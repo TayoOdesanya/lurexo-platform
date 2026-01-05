@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -28,7 +33,10 @@ export class AuthService {
     }
 
     // Hash password
-    const saltRounds = parseInt(this.configService.get('BCRYPT_ROUNDS') || '12', 10);
+    const saltRounds = parseInt(
+      this.configService.get('BCRYPT_ROUNDS') || '12',
+      10,
+    );
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     // Generate verification token
@@ -58,9 +66,15 @@ export class AuthService {
     // TODO: Send verification email (Phase 1B with SendGrid)
     // await this.emailService.sendVerificationEmail(user.email, verificationToken);
 
+    // ✅ Dev-only: return verification token to enable local verification UX
+    const nodeEnv = (this.configService.get('NODE_ENV') || '').toLowerCase();
+    const isDev = nodeEnv !== 'production';
+
     return {
-      message: 'Registration successful. Please check your email to verify your account.',
+      message:
+        'Registration successful. Please check your email to verify your account.',
       user,
+      ...(isDev ? { verificationToken } : {}),
     };
   }
 
@@ -193,7 +207,10 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
-    const saltRounds = parseInt(this.configService.get('BCRYPT_ROUNDS') || '12', 10);
+    const saltRounds = parseInt(
+      this.configService.get('BCRYPT_ROUNDS') || '12',
+      10,
+    );
     const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
     await this.prisma.user.update({

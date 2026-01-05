@@ -3,8 +3,24 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, Check, ArrowLeft, Shield } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  AlertCircle,
+  Check,
+  ArrowLeft,
+  Shield
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+
+type SignupResult = {
+  success: boolean;
+  message?: string;
+  verificationToken?: string; // ✅ dev-only from backend (if you return it in AuthContext)
+};
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -19,7 +35,7 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
-  
+
   const router = useRouter();
   const { signup, user } = useAuth();
 
@@ -43,29 +59,41 @@ export default function SignupPage() {
     if (password.match(/[a-z]/) && password.match(/[A-Z]/)) strength++;
     if (password.match(/[0-9]/)) strength++;
     if (password.match(/[^a-zA-Z0-9]/)) strength++;
-    
+
     setPasswordStrength(strength);
   }, [password]);
 
   const getPasswordStrengthColor = () => {
     switch (passwordStrength) {
-      case 0: return 'bg-gray-600';
-      case 1: return 'bg-red-500';
-      case 2: return 'bg-orange-500';
-      case 3: return 'bg-yellow-500';
-      case 4: return 'bg-green-500';
-      default: return 'bg-gray-600';
+      case 0:
+        return 'bg-gray-600';
+      case 1:
+        return 'bg-red-500';
+      case 2:
+        return 'bg-orange-500';
+      case 3:
+        return 'bg-yellow-500';
+      case 4:
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-600';
     }
   };
 
   const getPasswordStrengthText = () => {
     switch (passwordStrength) {
-      case 0: return '';
-      case 1: return 'Weak';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Strong';
-      default: return '';
+      case 0:
+        return '';
+      case 1:
+        return 'Weak';
+      case 2:
+        return 'Fair';
+      case 3:
+        return 'Good';
+      case 4:
+        return 'Strong';
+      default:
+        return '';
     }
   };
 
@@ -91,22 +119,29 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
 
     try {
-      const result = await signup(email, password, name);
-      
+      // ✅ Expect AuthContext.signup to optionally return verificationToken in dev
+      const result = (await signup(email, password, name)) as SignupResult;
+
       if (result.success) {
-        // Save marketing preference
         if (marketingOptIn) {
           localStorage.setItem('marketingOptIn', 'true');
         }
-        
-        // Redirect to email verification page
-        router.push('/verify-email?email=' + encodeURIComponent(email));
+
+        const qs = new URLSearchParams();
+        qs.set('email', email);
+
+        // ✅ If present (dev mode), pass token to verify-email page
+        if (result.verificationToken) {
+          qs.set('token', result.verificationToken);
+        }
+
+        router.push('/verify-email?' + qs.toString());
       } else {
         setError(result.message || 'Failed to create account');
       }
@@ -144,10 +179,12 @@ export default function SignupPage() {
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">L</span>
               </div>
-              <span className="text-white font-bold text-2xl tracking-tight hidden lg:inline">Lurexo</span>
+              <span className="text-white font-bold text-2xl tracking-tight hidden lg:inline">
+                Lurexo
+              </span>
             </div>
           </Link>
-          
+
           <div className="flex items-center gap-4">
             <span className="text-gray-400 text-sm">Already have an account?</span>
             <Link href="/login">
@@ -167,9 +204,7 @@ export default function SignupPage() {
             <h1 className="text-3xl lg:text-4xl font-bold text-white mb-3">
               Create your account
             </h1>
-            <p className="text-gray-400">
-              Join Lurexo for fair, transparent ticketing
-            </p>
+            <p className="text-gray-400">Join Lurexo for fair, transparent ticketing</p>
           </div>
 
           {/* Benefits Banner */}
@@ -263,14 +298,10 @@ export default function SignupPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-              
+
               {/* Password Strength Indicator */}
               {password && (
                 <div className="mt-2">
@@ -285,7 +316,12 @@ export default function SignupPage() {
                     ))}
                   </div>
                   <p className="text-xs text-gray-400">
-                    Password strength: <span className={`font-medium ${passwordStrength >= 3 ? 'text-green-400' : 'text-orange-400'}`}>
+                    Password strength:{' '}
+                    <span
+                      className={`font-medium ${
+                        passwordStrength >= 3 ? 'text-green-400' : 'text-orange-400'
+                      }`}
+                    >
                       {getPasswordStrengthText()}
                     </span>
                   </p>
@@ -295,7 +331,10 @@ export default function SignupPage() {
 
             {/* Confirm Password Input */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-gray-300 mb-2"
+              >
                 Confirm password
               </label>
               <div className="relative">
@@ -335,15 +374,21 @@ export default function SignupPage() {
                   onChange={(e) => setAgreedToTerms(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`mt-0.5 w-5 h-5 rounded border-2 ${agreedToTerms ? 'bg-purple-500 border-purple-500' : 'bg-transparent border-gray-600'} transition-colors flex items-center justify-center flex-shrink-0`}>
+                <div
+                  className={`mt-0.5 w-5 h-5 rounded border-2 ${
+                    agreedToTerms
+                      ? 'bg-purple-500 border-purple-500'
+                      : 'bg-transparent border-gray-600'
+                  } transition-colors flex items-center justify-center flex-shrink-0`}
+                >
                   {agreedToTerms && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="ml-2 text-sm text-gray-300">
                   I agree to the{' '}
                   <Link href="/terms" className="text-purple-400 hover:text-purple-300">
                     Terms & Conditions
-                  </Link>
-                  {' '}and{' '}
+                  </Link>{' '}
+                  and{' '}
                   <Link href="/privacy" className="text-purple-400 hover:text-purple-300">
                     Privacy Policy
                   </Link>
@@ -357,7 +402,13 @@ export default function SignupPage() {
                   onChange={(e) => setMarketingOptIn(e.target.checked)}
                   className="sr-only"
                 />
-                <div className={`mt-0.5 w-5 h-5 rounded border-2 ${marketingOptIn ? 'bg-purple-500 border-purple-500' : 'bg-transparent border-gray-600'} transition-colors flex items-center justify-center flex-shrink-0`}>
+                <div
+                  className={`mt-0.5 w-5 h-5 rounded border-2 ${
+                    marketingOptIn
+                      ? 'bg-purple-500 border-purple-500'
+                      : 'bg-transparent border-gray-600'
+                  } transition-colors flex items-center justify-center flex-shrink-0`}
+                >
                   {marketingOptIn && <Check className="w-3 h-3 text-white" />}
                 </div>
                 <span className="ml-2 text-sm text-gray-300">
@@ -400,10 +451,22 @@ export default function SignupPage() {
                 className="flex items-center justify-center gap-2 py-3 bg-gray-900 border border-gray-800 rounded-xl text-white hover:bg-gray-800 transition-colors"
               >
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
                 </svg>
                 <span className="text-sm font-medium">Google</span>
               </button>
@@ -414,8 +477,8 @@ export default function SignupPage() {
                 className="flex items-center justify-center gap-2 py-3 bg-gray-900 border border-gray-800 rounded-xl text-white hover:bg-gray-800 transition-colors"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.41-1.09-.49-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.42C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.74.8 0 2.3-.88 3.89-.77.66.02 2.51.27 3.7 2.03-2.4 1.45-2.01 4.64.78 5.52-.39 1.03-.88 2.03-1.78 3.08-.72.84-1.47 1.68-2.64 1.7-1.03.02-1.3-.66-2.7-.66s-1.74.64-2.83.68c-1.14.05-2.01-.9-2.73-1.73-1.48-1.7-2.64-4.8-1.1-6.89.76-1.03 2.13-1.69 3.61-1.7 1.13-.02 2.2.77 2.88.77.69 0 1.97-.95 3.31-.81.56.03 2.14.23 3.16 1.71-.08.05-1.88 1.1-1.86 3.27.03 2.59 2.28 3.45 2.31 3.46z"/>
-                  <path d="M13.03 3.3c.53-.64 1.36-1.77 1.17-2.8-1.31.06-2.78.91-3.61 1.89-.73.86-1.35 1.91-1.11 3-.56.04.44-.02 1.44-.02.87-.01 1.61-.53 2.11-1.07z"/>
+                  <path d="M17.05 20.28c-.98.95-2.05.88-3.08.41-1.09-.49-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.42C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.74.8 0 2.3-.88 3.89-.77.66.02 2.51.27 3.7 2.03-2.4 1.45-2.01 4.64.78 5.52-.39 1.03-.88 2.03-1.78 3.08-.72.84-1.47 1.68-2.64 1.7-1.03.02-1.3-.66-2.7-.66s-1.74.64-2.83.68c-1.14.05-2.01-.9-2.73-1.73-1.48-1.7-2.64-4.8-1.1-6.89.76-1.03 2.13-1.69 3.61-1.7 1.13-.02 2.2.77 2.88.77.69 0 1.97-.95 3.31-.81.56.03 2.14.23 3.16 1.71-.08.05-1.88 1.1-1.86 3.27.03 2.59 2.28 3.45 2.31 3.46z" />
+                  <path d="M13.03 3.3c.53-.64 1.36-1.77 1.17-2.8-1.31.06-2.78.91-3.61 1.89-.73.86-1.35 1.91-1.11 3-.56.04.44-.02 1.44-.02.87-.01 1.61-.53 2.11-1.07z" />
                 </svg>
                 <span className="text-sm font-medium">Apple</span>
               </button>
