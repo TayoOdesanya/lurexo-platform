@@ -1,7 +1,10 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3001/api';
 
 interface User {
   id: string;
@@ -10,28 +13,55 @@ interface User {
   phone?: string;
   createdAt: string;
   emailVerified: boolean;
-  preferences?: {
-    notifications: boolean;
-    newsletter: boolean;
-    darkMode: boolean;
-  };
+  role?: string;
 }
+
+type AuthResult = { success: boolean; message?: string };
+
+type SignupResult = AuthResult & {
+  verificationToken?: string; // ✅ dev-only: returned by backend register (Option A)
+};
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  signup: (email: string, password: string, name: string) => Promise<{ success: boolean; message?: string }>;
+
+  login: (email: string, password: string) => Promise<AuthResult>;
+  signup: (email: string, password: string, name: string) => Promise<SignupResult>;
   logout: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ success: boolean; message?: string }>;
-  updatePassword: (token: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  verifyEmail: (token: string) => Promise<{ success: boolean; message?: string }>;
-  resendVerificationEmail: () => Promise<{ success: boolean; message?: string }>;
-  updateProfile: (data: Partial<User>) => Promise<{ success: boolean; message?: string }>;
+
+  resetPassword: (email: string) => Promise<AuthResult>;
+  updatePassword: (token: string, password: string) => Promise<AuthResult>;
+
+  verifyEmail: (token: string) => Promise<AuthResult>;
+  resendVerificationEmail: () => Promise<AuthResult>;
+
+  updateProfile: (data: Partial<User>) => Promise<AuthResult>;
   checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function safeJsonParse<T>(value: string | null): T | null {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+}
+
+function saveAuth(accessToken: string, refreshToken: string, user: User) {
+  localStorage.setItem('authToken', accessToken);
+  localStorage.setItem('refreshToken', refreshToken);
+  localStorage.setItem('userData', JSON.stringify(user));
+}
+
+function clearAuth() {
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('userData');
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -41,217 +71,305 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem('authToken');
+      const cachedUser = safeJsonParse<User>(localStorage.getItem('userData'));
+
       if (!token) {
-        setLoading(false);
+        setUser(null);
         return;
       }
 
-      // In production, validate token with backend
-      // For now, check if user data exists
-      const userData = localStorage.getItem('userData');
-      if (userData) {
-        setUser(JSON.parse(userData));
+      // If we have cached user, show it immediately while we validate in background
+      if (cachedUser) setUser(cachedUser);
+
+      // Validate token with backend
+      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const me = await res.json();
+
+        const normalized: User = {
+          id: me.id,
+          email: me.email,
+          name:
+            [me.firstName, me.lastName].filter(Boolean).join(' ') ||
+            me.name ||
+            me.email?.split('@')?.[0] ||
+            'User',
+          phone: me.phoneNumber ?? me.phone,
+          createdAt: me.createdAt,
+          emailVerified: !!me.emailVerified,
+          role: me.role,
+        };
+
+        localStorage.setItem('userData', JSON.stringify(normalized));
+        setUser(normalized);
+        return;
       }
+
+      // If access token expired, try refresh token
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        clearAuth();
+        setUser(null);
+        return;
+      }
+
+      const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+
+      if (!refreshRes.ok) {
+        clearAuth();
+        setUser(null);
+        return;
+      }
+
+      const refreshed = await refreshRes.json();
+      if (refreshed?.accessToken) localStorage.setItem('authToken', refreshed.accessToken);
+      if (refreshed?.refreshToken) localStorage.setItem('refreshToken', refreshed.refreshToken);
+
+      // Try /me again after refresh
+      const me2Res = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+      });
+
+      if (!me2Res.ok) {
+        clearAuth();
+        setUser(null);
+        return;
+      }
+
+      const me2 = await me2Res.json();
+      const normalized2: User = {
+        id: me2.id,
+        email: me2.email,
+        name:
+          [me2.firstName, me2.lastName].filter(Boolean).join(' ') ||
+          me2.name ||
+          me2.email?.split('@')?.[0] ||
+          'User',
+        phone: me2.phoneNumber ?? me2.phone,
+        createdAt: me2.createdAt,
+        emailVerified: !!me2.emailVerified,
+        role: me2.role,
+      };
+
+      localStorage.setItem('userData', JSON.stringify(normalized2));
+      setUser(normalized2);
     } catch (error) {
       console.error('Auth check failed:', error);
+      // Don’t hard logout on transient errors
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      // In production, call your backend API
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password })
-      // });
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-      // Mock successful login for demo
-      const mockUser: User = {
-        id: 'user_' + Math.random().toString(36).substr(2, 9),
-        email,
-        name: email.split('@')[0],
-        createdAt: new Date().toISOString(),
-        emailVerified: true,
-        preferences: {
-          notifications: true,
-          newsletter: false,
-          darkMode: true
-        }
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: txt || 'Login failed. Please check your credentials.' };
+      }
+
+      const data = await res.json();
+
+      // Expected shape:
+      // { user: { id,email,firstName,lastName,role,emailVerified }, accessToken, refreshToken }
+      const u = data.user;
+
+      const normalized: User = {
+        id: u.id,
+        email: u.email,
+        name:
+          [u.firstName, u.lastName].filter(Boolean).join(' ') ||
+          u.name ||
+          u.email?.split('@')?.[0] ||
+          'User',
+        createdAt: u.createdAt || new Date().toISOString(),
+        emailVerified: !!u.emailVerified,
+        role: u.role,
       };
 
-      // Store auth data
-      localStorage.setItem('authToken', 'mock_token_' + Date.now());
-      localStorage.setItem('userData', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      
+      saveAuth(data.accessToken, data.refreshToken, normalized);
+      setUser(normalized);
+
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Login failed. Please check your credentials.' 
-      };
+      console.error('Login failed:', error);
+      return { success: false, message: 'Login failed. Please try again.' };
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string): Promise<SignupResult> => {
     try {
-      // In production, call your backend API
-      // const response = await fetch('/api/auth/signup', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email, password, name })
-      // });
+      // Backend expects: { email, password, firstName, lastName, role? }
+      // Your UI uses a single "name" field, so split it.
+      const trimmed = name.trim();
+      const parts = trimmed.split(/\s+/).filter(Boolean);
+      const firstName = parts[0] || trimmed || 'User';
+      const lastName = parts.slice(1).join(' ') || 'User';
 
-      // Mock successful signup for demo
-      const mockUser: User = {
-        id: 'user_' + Math.random().toString(36).substr(2, 9),
-        email,
-        name,
-        createdAt: new Date().toISOString(),
-        emailVerified: false,
-        preferences: {
-          notifications: true,
-          newsletter: true,
-          darkMode: true
-        }
-      };
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          firstName,
+          lastName,
+          // role: 'BUYER', // optional
+        }),
+      });
 
-      // Store auth data
-      localStorage.setItem('authToken', 'mock_token_' + Date.now());
-      localStorage.setItem('userData', JSON.stringify(mockUser));
-      
-      setUser(mockUser);
-      
-      return { 
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: txt || 'Signup failed. This email may already be registered.' };
+      }
+
+      const data = await res.json();
+      // Expected shape currently:
+      // { message, user, verificationToken? }  (verificationToken only in dev if you add Option A)
+      const verificationToken: string | undefined =
+        data.verificationToken ?? data?.user?.verificationToken;
+
+      // We don't log the user in automatically on signup (keeps flow clean for verification)
+      // But we can store a light "pending user" record for UI continuity if you want.
+      // For now, do nothing except return token.
+
+      return {
         success: true,
-        message: 'Account created! Please check your email to verify your account.'
+        message: data.message || 'Account created! Please verify your email.',
+        verificationToken,
       };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Signup failed. This email may already be registered.' 
-      };
+      console.error('Signup failed:', error);
+      return { success: false, message: 'Signup failed. Please try again.' };
     }
   };
 
   const logout = async () => {
     try {
-      // Clear auth data
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('userData');
+      clearAuth();
       setUser(null);
-      
-      // Redirect to home
       router.push('/');
     } catch (error) {
       console.error('Logout failed:', error);
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email: string): Promise<AuthResult> => {
     try {
-      // In production, call your backend API
-      // await fetch('/api/auth/reset-password', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email })
-      // });
+      const res = await fetch(`${API_BASE_URL}/auth/request-password-reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-      return { 
-        success: true,
-        message: 'Password reset link sent! Check your email.'
-      };
+      // This endpoint intentionally returns success even if email doesn't exist
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: txt || 'Failed to send reset email. Please try again.' };
+      }
+
+      const data = await res.json().catch(() => ({}));
+      return { success: true, message: data.message || 'If the email exists, a reset link has been sent.' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to send reset email. Please try again.' 
-      };
+      console.error('Reset password failed:', error);
+      return { success: false, message: 'Failed to send reset email. Please try again.' };
     }
   };
 
-  const updatePassword = async (token: string, password: string) => {
+  const updatePassword = async (token: string, password: string): Promise<AuthResult> => {
     try {
-      // In production, call your backend API
-      return { 
-        success: true,
-        message: 'Password updated successfully!'
-      };
+      const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword: password }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: txt || 'Failed to update password. Link may have expired.' };
+      }
+
+      const data = await res.json().catch(() => ({}));
+      return { success: true, message: data.message || 'Password updated successfully!' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to update password. Link may have expired.' 
-      };
+      console.error('Update password failed:', error);
+      return { success: false, message: 'Failed to update password. Please try again.' };
     }
   };
 
-  const verifyEmail = async (token: string) => {
+  const verifyEmail = async (token: string): Promise<AuthResult> => {
     try {
-      // In production, call your backend API
+      // Backend uses GET /auth/verify-email/:token
+      const res = await fetch(`${API_BASE_URL}/auth/verify-email/${encodeURIComponent(token)}`, {
+        method: 'GET',
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        return { success: false, message: txt || 'Email verification failed. Link may have expired.' };
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      // If user is logged in, update local flag
       if (user) {
         const updatedUser = { ...user, emailVerified: true };
         setUser(updatedUser);
         localStorage.setItem('userData', JSON.stringify(updatedUser));
       }
-      
-      return { 
-        success: true,
-        message: 'Email verified successfully!'
-      };
+
+      return { success: true, message: data.message || 'Email verified successfully!' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Email verification failed. Link may have expired.' 
-      };
+      console.error('Verify email failed:', error);
+      return { success: false, message: 'Email verification failed. Please try again.' };
     }
   };
 
-  const resendVerificationEmail = async () => {
-    try {
-      // In production, call your backend API
-      return { 
-        success: true,
-        message: 'Verification email sent! Check your inbox.'
-      };
-    } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to send verification email.' 
-      };
-    }
+  const resendVerificationEmail = async (): Promise<AuthResult> => {
+    // You do not currently have a backend endpoint for this.
+    // Keeping as a friendly placeholder for now.
+    return {
+      success: false,
+      message: 'Resend verification is not implemented yet.',
+    };
   };
 
-  const updateProfile = async (data: Partial<User>) => {
+  const updateProfile = async (data: Partial<User>): Promise<AuthResult> => {
     try {
-      // In production, call your backend API
+      // No backend endpoint shown for profile updates; keep local update for now.
       if (user) {
         const updatedUser = { ...user, ...data };
         setUser(updatedUser);
         localStorage.setItem('userData', JSON.stringify(updatedUser));
       }
-      
-      return { 
-        success: true,
-        message: 'Profile updated successfully!'
-      };
+      return { success: true, message: 'Profile updated successfully!' };
     } catch (error) {
-      return { 
-        success: false, 
-        message: 'Failed to update profile.' 
-      };
+      console.error('Update profile failed:', error);
+      return { success: false, message: 'Failed to update profile.' };
     }
   };
 
-  return (
-    <AuthContext.Provider value={{
+  const value = useMemo<AuthContextType>(
+    () => ({
       user,
       loading,
       login,
@@ -262,11 +380,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resendVerificationEmail,
       updateProfile,
-      checkAuth
-    }}>
-      {children}
-    </AuthContext.Provider>
+      checkAuth,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, loading],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

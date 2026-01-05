@@ -22,16 +22,16 @@ export class ResaleMarketplaceService {
   async createListing(userId: string, createListingDto: CreateListingDto) {
     const { ticketId, price } = createListingDto;
 
-    const ticket = await this.prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: {
-        event: true,
-        tier: true,
-        listings: {
-          where: { status: 'ACTIVE' },
-        },
-      },
-    });
+const ticket = await this.prisma.ticket.findUnique({
+  where: { id: ticketId },
+  include: {
+    event: true,
+    tier: true,
+    listings: {
+      where: { status: 'ACTIVE' },
+    },
+  },
+});
 
     if (!ticket) {
       throw new NotFoundException('Ticket not found');
@@ -57,9 +57,10 @@ export class ResaleMarketplaceService {
       throw new BadRequestException('Cannot list tickets for past events');
     }
 
-    if (ticket.listings.length > 0) {
-      throw new BadRequestException('This ticket is already listed for sale');
-    }
+    if (ticket.listings) {
+  throw new BadRequestException('This ticket is already listed for sale');
+}
+
 
     const maxPrice = this.calculateMaxResalePrice(ticket);
 

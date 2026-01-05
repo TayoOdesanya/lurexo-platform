@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Calendar,
-  MapPin,
-  Music,
   Users,
   Ticket,
   ArrowRight,
@@ -14,11 +12,18 @@ import {
   Check,
   Sparkles,
   Upload,
-  Image as ImageIcon,
   X,
   Loader2,
   Wand2
 } from 'lucide-react';
+
+function getAccessTokenClient(): string | null {
+  try {
+    return localStorage.getItem('accessToken');
+  } catch {
+    return null;
+  }
+}
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -26,6 +31,19 @@ export default function CreateEventPage() {
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingLongDescription, setIsGeneratingLongDescription] = useState(false);
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // ✅ required: must be logged in so backend can infer organiserId via /auth/me
+  useEffect(() => {
+    const token = getAccessTokenClient();
+    if (!token) {
+      router.push('/organizer/login'); // adjust if your route differs
+      return;
+    }
+    setAccessToken(token);
+  }, [router]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -36,7 +54,7 @@ export default function CreateEventPage() {
     longDescription: '',
     coverImage: null as File | null,
     coverImagePreview: '',
-    
+
     // Step 2: Date & Location
     eventDate: '',
     eventTime: '',
@@ -44,12 +62,10 @@ export default function CreateEventPage() {
     address: '',
     city: '',
     postcode: '',
-    
+
     // Step 3: Tickets
-    ticketTiers: [
-      { name: 'General Admission', price: '', quantity: '', description: '' }
-    ],
-    
+    ticketTiers: [{ name: 'General Admission', price: '', quantity: '', description: '' }],
+
     // Step 4: Settings
     status: 'DRAFT',
   });
@@ -74,29 +90,29 @@ export default function CreateEventPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleCategorySelect = (categoryId: string) => {
-    setFormData(prev => ({ ...prev, category: categoryId }));
+    setFormData((prev) => ({ ...prev, category: categoryId }));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         coverImage: file,
-        coverImagePreview: URL.createObjectURL(file)
+        coverImagePreview: URL.createObjectURL(file),
       }));
     }
   };
 
   const handleRemoveImage = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       coverImage: null,
-      coverImagePreview: ''
+      coverImagePreview: '',
     }));
   };
 
@@ -108,13 +124,11 @@ export default function CreateEventPage() {
     }
 
     setIsGeneratingDescription(true);
-    
-    // Simulate AI generation (replace with actual API call)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     const generatedDescription = `Join us for an unforgettable ${formData.category} experience at ${formData.eventName}. This event promises to deliver exceptional entertainment and create lasting memories for all attendees.`;
-    
-    setFormData(prev => ({ ...prev, shortDescription: generatedDescription }));
+
+    setFormData((prev) => ({ ...prev, shortDescription: generatedDescription }));
     setIsGeneratingDescription(false);
   };
 
@@ -126,10 +140,8 @@ export default function CreateEventPage() {
     }
 
     setIsGeneratingLongDescription(true);
-    
-    // Simulate AI generation (replace with actual API call)
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+
     const generatedLongDescription = `${formData.shortDescription}
 
 About This Event:
@@ -146,12 +158,12 @@ Whether you're a long-time fan or discovering something new, this event offers s
 
 Accessibility:
 The venue is fully accessible with wheelchair access, accessible toilets, and assistance available upon request.`;
-    
-    setFormData(prev => ({ ...prev, longDescription: generatedLongDescription }));
+
+    setFormData((prev) => ({ ...prev, longDescription: generatedLongDescription }));
     setIsGeneratingLongDescription(false);
   };
 
-  // AI Generate Event Poster
+  // AI Generate Event Poster (preview only)
   const handleGeneratePoster = async () => {
     if (!formData.eventName || !formData.category) {
       alert('Please enter an event name and select a category first');
@@ -159,43 +171,125 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
     }
 
     setIsGeneratingPoster(true);
-    
-    // Simulate AI poster generation (replace with actual API call to DALL-E, Midjourney, etc.)
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    // For now, use a placeholder image
-    // In production, this would call your AI image generation API
-    const placeholderPoster = 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=630&fit=crop';
-    
-    setFormData(prev => ({
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    const placeholderPoster =
+      'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1200&h=630&fit=crop';
+
+    setFormData((prev) => ({
       ...prev,
       coverImagePreview: placeholderPoster,
-      // In production, you'd download the generated image and convert to File
+      // NOTE: this does not set coverImage; only uploaded files will be saved to /public/events/<userId>/...
     }));
-    
+
     setIsGeneratingPoster(false);
   };
 
   const handleNext = () => {
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
+    if (currentStep < 4) setCurrentStep(currentStep + 1);
   };
 
   const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
+  function validateBasics(): string | null {
+    if (!formData.eventName.trim()) return 'Event name is required';
+    if (!formData.category) return 'Category is required';
+    if (!formData.shortDescription.trim()) return 'Short description is required';
+    if (!formData.eventDate) return 'Event date is required';
+    if (!formData.eventTime) return 'Event time is required';
+    if (!formData.venue.trim()) return 'Venue is required';
+    if (!formData.address.trim()) return 'Address is required';
+    if (!formData.city.trim()) return 'City is required';
+    if (!formData.postcode.trim()) return 'Postcode is required';
+    return null;
+  }
+
+  /**
+   * ✅ Required change:
+   * Save draft/publish via Next.js route `/api/events/create`
+   * Server route infers organiserId from Bearer token via NestJS `/auth/me`
+   * Server route saves image to: /public/events/<userId>/...
+   */
+  const submitEvent = async (status: 'DRAFT' | 'PUBLISHED') => {
+    if (!accessToken) throw new Error('Not signed in');
+
+    const fd = new FormData();
+    fd.append('eventName', formData.eventName);
+    fd.append('category', formData.category);
+    fd.append('shortDescription', formData.shortDescription);
+    fd.append('longDescription', formData.longDescription);
+
+    fd.append('eventDate', formData.eventDate);
+    fd.append('eventTime', formData.eventTime);
+    fd.append('venue', formData.venue);
+    fd.append('address', formData.address);
+    fd.append('city', formData.city);
+    fd.append('postcode', formData.postcode);
+
+    fd.append('status', status);
+
+    if (formData.coverImage) {
+      fd.append('coverImage', formData.coverImage);
+    }
+
+    const res = await fetch('/api/events/create', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: fd,
+    });
+
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => null))?.error ?? 'Failed to save event';
+      throw new Error(msg);
+    }
+
+    return res.json();
+  };
+
+  const handleSaveDraft = async () => {
+    const err = validateBasics();
+    if (err) {
+      alert(err);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await submitEvent('DRAFT');
+      alert('Draft saved!');
+    } catch (e: any) {
+      alert(e?.message ?? 'Failed to save draft');
+      if (String(e?.message ?? '').toLowerCase().includes('unauth')) {
+        router.push('/organizer/login');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleSaveDraft = () => {
-    // TODO: Save draft to backend
-    alert('Draft saved!');
-  };
+  const handlePublish = async () => {
+    const err = validateBasics();
+    if (err) {
+      alert(err);
+      return;
+    }
 
-  const handlePublish = () => {
-    // TODO: Publish event
-    router.push('/organizer/dashboard?event=published');
+    try {
+      setIsSaving(true);
+      await submitEvent('PUBLISHED');
+      router.push('/organizer/dashboard?event=published');
+    } catch (e: any) {
+      alert(e?.message ?? 'Failed to publish');
+      if (String(e?.message ?? '').toLowerCase().includes('unauth')) {
+        router.push('/organizer/login');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -211,14 +305,12 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
             <div className="flex items-center gap-3">
               <button
                 onClick={handleSaveDraft}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors text-sm"
+                disabled={isSaving}
+                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors text-sm disabled:opacity-50"
               >
-                Save Draft
+                {isSaving ? 'Saving…' : 'Save Draft'}
               </button>
-              <button
-                onClick={() => router.push('/organizer/dashboard')}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-              >
+              <button onClick={() => router.push('/organizer/dashboard')} className="p-2 text-gray-400 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -243,18 +335,12 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                           : 'bg-gray-800 text-gray-400'
                       }`}
                     >
-                      {isCompleted ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        <Icon className="w-4 h-4" />
-                      )}
+                      {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                       <span className="font-medium text-sm hidden sm:inline">{step.name}</span>
                       <span className="font-medium text-sm sm:hidden">{step.number}</span>
                     </div>
                   </div>
-                  {index < steps.length - 1 && (
-                    <div className="w-4 sm:w-8 h-0.5 bg-gray-800 mx-1"></div>
-                  )}
+                  {index < steps.length - 1 && <div className="w-4 sm:w-8 h-0.5 bg-gray-800 mx-1"></div>}
                 </div>
               );
             })}
@@ -295,25 +381,13 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
 
               {formData.coverImagePreview ? (
                 <div className="relative group">
-                  <img
-                    src={formData.coverImagePreview}
-                    alt="Event cover"
-                    className="w-full h-64 object-cover rounded-xl"
-                  />
+                  <img src={formData.coverImagePreview} alt="Event cover" className="w-full h-64 object-cover rounded-xl" />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-4">
                     <label className="cursor-pointer px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors">
                       Change Image
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
+                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                     </label>
-                    <button
-                      onClick={handleRemoveImage}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-500 transition-colors"
-                    >
+                    <button onClick={handleRemoveImage} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-500 transition-colors">
                       Remove
                     </button>
                   </div>
@@ -325,12 +399,7 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                     <p className="text-white font-medium mb-2">Click to upload or drag and drop</p>
                     <p className="text-gray-400 text-sm">PNG, JPG up to 10MB</p>
                   </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                 </label>
               )}
 
@@ -340,9 +409,7 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                     <Sparkles className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0 animate-pulse" />
                     <div>
                       <p className="text-purple-300 font-medium text-sm mb-1">AI Poster Generation</p>
-                      <p className="text-purple-200/80 text-xs">
-                        Creating a unique artistic poster based on your event details. This may take a few moments...
-                      </p>
+                      <p className="text-purple-200/80 text-xs">Creating a unique artistic poster based on your event details. This may take a few moments...</p>
                     </div>
                   </div>
                 </div>
@@ -462,7 +529,7 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           <div className="space-y-6">
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
               <h2 className="text-white font-bold text-lg mb-6">When & Where</h2>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div>
                   <label className="text-white font-medium mb-2 block">Event Date *</label>
@@ -545,7 +612,6 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
             <h2 className="text-white font-bold text-lg mb-4">Ticket Tiers</h2>
             <p className="text-gray-400 mb-6">Configure your ticket types and pricing</p>
-            {/* Add ticket tier configuration here */}
             <div className="text-center py-12">
               <Ticket className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-500">Ticket configuration coming soon</p>
@@ -558,7 +624,6 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
             <h2 className="text-white font-bold text-lg mb-4">Review & Publish</h2>
             <p className="text-gray-400 mb-6">Review your event details before publishing</p>
-            {/* Add review/preview here */}
             <div className="text-center py-12">
               <Check className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-500">Review page coming soon</p>
@@ -570,7 +635,7 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
         <div className="flex justify-between mt-8">
           <button
             onClick={handleBack}
-            disabled={currentStep === 1}
+            disabled={currentStep === 1 || isSaving}
             className="flex items-center gap-2 px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -580,7 +645,8 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           {currentStep < 4 ? (
             <button
               onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-semibold transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
             >
               Continue
               <ArrowRight className="w-5 h-5" />
@@ -588,10 +654,20 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           ) : (
             <button
               onClick={handlePublish}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-semibold transition-colors"
+              disabled={isSaving}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
             >
-              <Check className="w-5 h-5" />
-              Publish Event
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Publishing…
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5" />
+                  Publish Event
+                </>
+              )}
             </button>
           )}
         </div>

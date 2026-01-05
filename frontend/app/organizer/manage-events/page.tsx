@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Calendar,
   Search,
@@ -10,128 +11,205 @@ import {
   Edit,
   Eye,
   Trash2,
-  Copy,
   MoreVertical,
-  Users,
   Ticket,
   DollarSign,
   Clock,
   MapPin,
   TrendingUp,
-  TrendingDown,
-  AlertCircle,
   CheckCircle,
   Pause,
-  Play,
-  Share2,
-  Download,
-  Mail,
-  BarChart3,
   ArrowUpDown,
   X,
-  Settings
+  BarChart3,
+  Share2,
 } from 'lucide-react';
+import { apiRequestAuth } from '../../../lib/api';
+
+
+function getAccessTokenClient(): string | null {
+  try {
+    return localStorage.getItem('accessToken');
+  } catch {
+    return null;
+  }
+}
+
+// -------------------------
+// Backend DTO (best-effort)
+// -------------------------
+type ApiEvent = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  category?: string | null;
+  eventDate?: string | null; // ISO
+  venue?: string | null;
+  location?: string | null;
+
+  // optional fields your backend may or may not return
+  status?: string | null; // e.g. DRAFT / PUBLISHED / PAUSED / ENDED
+  ticketsSold?: number | string | null;
+  capacity?: number | string | null;
+  totalCapacity?: number | string | null;
+
+  ticketPrice?: number | string | null; // could be pounds or pence depending on your API
+  serviceFee?: number | string | null;
+
+  imageUrl?: string | null;
+  heroImage?: string | null;
+
+  // not always present
+  views?: number | string | null;
+
+  updatedAt?: string | null;
+  createdAt?: string | null;
+};
+
+function safeNumber(v: any, fallback = 0) {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function formatRelativeTime(iso?: string | null) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const diffMs = Date.now() - d.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+// UI model for this page
+type UiEvent = {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  venue: string;
+  status: 'on-sale' | 'draft' | 'sold-out' | 'paused' | 'ended';
+  ticketsSold: number;
+  totalTickets: number;
+  revenue: number; // pounds
+  views: number;
+  image?: string;
+  category: string;
+  lastUpdated: string;
+};
+
+function mapStatus(apiStatus?: string | null, sold: number, cap: number): UiEvent['status'] {
+  const s = (apiStatus ?? '').toUpperCase();
+
+  // if sold out, show sold-out no matter what
+  if (cap > 0 && sold >= cap) return 'sold-out';
+
+  if (s === 'PUBLISHED' || s === 'ON_SALE') return 'on-sale';
+  if (s === 'DRAFT') return 'draft';
+  if (s === 'PAUSED') return 'paused';
+  if (s === 'ENDED') return 'ended';
+
+  // fallback
+  return 'draft';
+}
+
+// IMPORTANT: if your API money is in pence, flip this to value/100
+function moneyToPounds(value: number) {
+  return value; // <-- assumes pounds (your mock data is in pounds)
+}
+
+function toUiEvent(e: ApiEvent): UiEvent {
+  const dt = new Date(e.eventDate ?? new Date().toISOString());
+  const yyyy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+
+  const hh = String(dt.getHours()).padStart(2, '0');
+  const min = String(dt.getMinutes()).padStart(2, '0');
+
+  const sold = safeNumber(e.ticketsSold, 0);
+  const cap = safeNumber((e as any).capacity ?? (e as any).totalCapacity, 0);
+
+  const ticketPrice = safeNumber(e.ticketPrice, 0);
+  const revenue = moneyToPounds(ticketPrice * sold);
+
+  const venue = e.location || e.venue || '—';
+
+  return {
+    id: e.id,
+    name: (e.title ?? 'Untitled event').toString(),
+    date: `${yyyy}-${mm}-${dd}`,
+    time: `${hh}:${min}`,
+    venue,
+    status: mapStatus(e.status, sold, cap),
+    ticketsSold: sold,
+    totalTickets: cap || Math.max(sold, 0),
+    revenue,
+    views: safeNumber((e as any).views, 0),
+    image: e.heroImage ?? e.imageUrl ?? undefined,
+    category: (e.category ?? 'Event').toString(),
+    lastUpdated: formatRelativeTime(e.updatedAt ?? e.createdAt),
+  };
+}
 
 export default function ManageEventsPage() {
+  const router = useRouter();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [sortBy, setSortBy] = useState('date');
+  const [sortBy, setSortBy] = useState<'date' | 'name' | 'revenue' | 'sold'>('date');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
 
-  // Mock events data
-  const events = [
-    {
-      id: 1,
-      name: 'Summer Music Festival 2025',
-      date: '2025-06-15',
-      time: '18:00',
-      venue: 'Hyde Park, London',
-      status: 'on-sale',
-      ticketsSold: 847,
-      totalTickets: 1000,
-      revenue: 42350,
-      views: 12453,
-      image: '/event-placeholder.jpg',
-      category: 'Music',
-      lastUpdated: '2 hours ago'
-    },
-    {
-      id: 2,
-      name: 'Jazz Night Live',
-      date: '2025-07-22',
-      time: '20:00',
-      venue: 'Ronnie Scott\'s, London',
-      status: 'on-sale',
-      ticketsSold: 124,
-      totalTickets: 200,
-      revenue: 6200,
-      views: 3241,
-      image: '/event-placeholder.jpg',
-      category: 'Music',
-      lastUpdated: '1 day ago'
-    },
-    {
-      id: 3,
-      name: 'Comedy Special - Sarah Johnson',
-      date: '2025-08-10',
-      time: '19:30',
-      venue: 'The Comedy Store, London',
-      status: 'draft',
-      ticketsSold: 0,
-      totalTickets: 150,
-      revenue: 0,
-      views: 0,
-      image: '/event-placeholder.jpg',
-      category: 'Comedy',
-      lastUpdated: '3 days ago'
-    },
-    {
-      id: 4,
-      name: 'Tech Conference 2025',
-      date: '2025-05-20',
-      time: '09:00',
-      venue: 'ExCeL London',
-      status: 'sold-out',
-      ticketsSold: 500,
-      totalTickets: 500,
-      revenue: 45000,
-      views: 28934,
-      image: '/event-placeholder.jpg',
-      category: 'Conference',
-      lastUpdated: '1 week ago'
-    },
-    {
-      id: 5,
-      name: 'Food & Wine Festival',
-      date: '2025-09-05',
-      time: '12:00',
-      venue: 'Southbank Centre, London',
-      status: 'paused',
-      ticketsSold: 234,
-      totalTickets: 800,
-      revenue: 11700,
-      views: 5643,
-      image: '/event-placeholder.jpg',
-      category: 'Food & Drink',
-      lastUpdated: '2 days ago'
-    },
-    {
-      id: 6,
-      name: 'Art Exhibition Opening',
-      date: '2025-04-15',
-      time: '18:00',
-      venue: 'Tate Modern, London',
-      status: 'ended',
-      ticketsSold: 320,
-      totalTickets: 350,
-      revenue: 9600,
-      views: 7234,
-      image: '/event-placeholder.jpg',
-      category: 'Arts',
-      lastUpdated: '2 weeks ago'
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [events, setEvents] = useState<UiEvent[]>([]);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // ✅ ensure signed in
+  useEffect(() => {
+    const token = getAccessTokenClient();
+    if (!token) {
+      router.push('/organizer/login');
+      return;
     }
-  ];
+    setAccessToken(token);
+  }, [router]);
+
+  // ✅ load from backend
+  useEffect(() => {
+    if (!accessToken) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // If your backend returns { data: [...] } adjust below accordingly.
+        const apiEvents = await apiRequestAuth<ApiEvent[]>(`/events`, accessToken, { method: 'GET' });
+
+        if (cancelled) return;
+
+        const mapped = (apiEvents ?? []).map(toUiEvent);
+        setEvents(mapped);
+      } catch (e: any) {
+        if (cancelled) return;
+        setError(e?.message ?? 'Failed to load events');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -175,24 +253,44 @@ export default function ManageEventsPage() {
     }
   };
 
-  const filteredEvents = events.filter((event) => {
-    const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         event.venue.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || event.status === filterStatus;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredEvents = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
 
-  const toggleEventSelection = (eventId: number) => {
-    setSelectedEvents(prev =>
-      prev.includes(eventId)
-        ? prev.filter(id => id !== eventId)
-        : [...prev, eventId]
-    );
+    const base = events.filter((event) => {
+      const matchesSearch =
+        !q ||
+        event.name.toLowerCase().includes(q) ||
+        event.venue.toLowerCase().includes(q);
+
+      const matchesFilter = filterStatus === 'all' || event.status === filterStatus;
+      return matchesSearch && matchesFilter;
+    });
+
+    // simple sort
+    const sorted = [...base].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'revenue':
+          return b.revenue - a.revenue;
+        case 'sold':
+          return (b.ticketsSold / Math.max(1, b.totalTickets)) - (a.ticketsSold / Math.max(1, a.totalTickets));
+        case 'date':
+        default:
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
+      }
+    });
+
+    return sorted;
+  }, [events, searchQuery, filterStatus, sortBy]);
+
+  const toggleEventSelection = (eventId: string) => {
+    setSelectedEvents((prev) => (prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]));
   };
 
   const handleBulkAction = (action: string) => {
     console.log(`Bulk action: ${action} on events:`, selectedEvents);
-    // Implement bulk actions here
+    // TODO: implement bulk actions in backend
   };
 
   return (
@@ -202,13 +300,12 @@ export default function ManageEventsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-white font-bold text-2xl sm:text-3xl mb-2">
-                Manage Events
-              </h1>
+              <h1 className="text-white font-bold text-2xl sm:text-3xl mb-2">Manage Events</h1>
               <p className="text-gray-400 text-sm">
                 {filteredEvents.length} {filteredEvents.length === 1 ? 'event' : 'events'} found
               </p>
             </div>
+
             <Link href="/organizer/create-event">
               <button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-colors shadow-lg">
                 <Plus className="w-5 h-5" />
@@ -220,6 +317,18 @@ export default function ManageEventsPage() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Loading / error */}
+        {loading && (
+          <div className="bg-gray-900 rounded-2xl p-6 border border-gray-800 mb-6 text-gray-400">
+            Loading events…
+          </div>
+        )}
+        {error && !loading && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 mb-6 text-red-300">
+            {error}
+          </div>
+        )}
+
         {/* Search and Filters */}
         <div className="bg-gray-900 rounded-2xl p-4 sm:p-6 border border-gray-800 mb-6">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -242,17 +351,19 @@ export default function ManageEventsPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-3 rounded-xl font-medium text-sm flex items-center gap-2 transition-colors ${
-                  showFilters
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:text-white'
+                  showFilters ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                 }`}
               >
                 <Filter className="w-4 h-4" />
                 Filters
               </button>
-              <button className="px-4 py-3 bg-gray-800 text-gray-400 hover:text-white rounded-xl font-medium text-sm flex items-center gap-2 transition-colors">
+
+              <button
+                onClick={() => setSortBy(sortBy === 'date' ? 'name' : sortBy === 'name' ? 'revenue' : sortBy === 'revenue' ? 'sold' : 'date')}
+                className="px-4 py-3 bg-gray-800 text-gray-400 hover:text-white rounded-xl font-medium text-sm flex items-center gap-2 transition-colors"
+              >
                 <ArrowUpDown className="w-4 h-4" />
-                Sort
+                Sort: {sortBy}
               </button>
             </div>
           </div>
@@ -266,12 +377,12 @@ export default function ManageEventsPage() {
                     key={status}
                     onClick={() => setFilterStatus(status)}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      filterStatus === status
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-800 text-gray-400 hover:text-white'
+                      filterStatus === status ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'
                     }`}
                   >
-                    {status === 'all' ? 'All Events' : status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    {status === 'all'
+                      ? 'All Events'
+                      : status.replace('-', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                   </button>
                 ))}
               </div>
@@ -329,8 +440,13 @@ export default function ManageEventsPage() {
                 </div>
 
                 {/* Event Image */}
-                <div className="w-full lg:w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <Calendar className="w-12 h-12 text-purple-400" />
+                <div className="w-full lg:w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {event.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={event.image} alt={event.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <Calendar className="w-12 h-12 text-purple-400" />
+                  )}
                 </div>
 
                 {/* Event Details */}
@@ -338,32 +454,30 @@ export default function ManageEventsPage() {
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-white font-bold text-lg truncate">
-                          {event.name}
-                        </h3>
+                        <h3 className="text-white font-bold text-lg truncate">{event.name}</h3>
                         {getStatusBadge(event.status)}
                       </div>
+
                       <div className="flex flex-wrap gap-3 text-gray-400 text-sm mb-2">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
                           {new Date(event.date).toLocaleDateString('en-GB', {
                             day: 'numeric',
                             month: 'short',
-                            year: 'numeric'
+                            year: 'numeric',
                           })}
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
                           {event.time}
                         </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          {event.venue}
+                        <span className="flex items-center gap-1 min-w-0">
+                          <MapPin className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{event.venue}</span>
                         </span>
                       </div>
-                      <p className="text-gray-500 text-xs">
-                        Last updated {event.lastUpdated}
-                      </p>
+
+                      <p className="text-gray-500 text-xs">Last updated {event.lastUpdated}</p>
                     </div>
                   </div>
 
@@ -380,8 +494,10 @@ export default function ManageEventsPage() {
                       <div className="mt-2 h-1 bg-gray-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-purple-600 to-blue-600 rounded-full"
-                          style={{ width: `${(event.ticketsSold / event.totalTickets) * 100}%` }}
-                        ></div>
+                          style={{
+                            width: `${event.totalTickets > 0 ? (event.ticketsSold / event.totalTickets) * 100 : 0}%`,
+                          }}
+                        />
                       </div>
                     </div>
 
@@ -390,9 +506,7 @@ export default function ManageEventsPage() {
                         <DollarSign className="w-4 h-4 text-green-400" />
                         <span className="text-gray-400 text-xs">Revenue</span>
                       </div>
-                      <p className="text-white font-bold">
-                        £{event.revenue.toLocaleString()}
-                      </p>
+                      <p className="text-white font-bold">£{event.revenue.toLocaleString()}</p>
                     </div>
 
                     <div className="bg-gray-800 rounded-lg p-3">
@@ -400,9 +514,7 @@ export default function ManageEventsPage() {
                         <Eye className="w-4 h-4 text-purple-400" />
                         <span className="text-gray-400 text-xs">Views</span>
                       </div>
-                      <p className="text-white font-bold">
-                        {event.views.toLocaleString()}
-                      </p>
+                      <p className="text-white font-bold">{event.views.toLocaleString()}</p>
                     </div>
 
                     <div className="bg-gray-800 rounded-lg p-3">
@@ -410,9 +522,7 @@ export default function ManageEventsPage() {
                         <TrendingUp className="w-4 h-4 text-orange-400" />
                         <span className="text-gray-400 text-xs">Category</span>
                       </div>
-                      <p className="text-white font-bold text-sm">
-                        {event.category}
-                      </p>
+                      <p className="text-white font-bold text-sm">{event.category}</p>
                     </div>
                   </div>
 
@@ -424,22 +534,27 @@ export default function ManageEventsPage() {
                         Edit Event
                       </button>
                     </Link>
-                    <Link href={`/events/${event.id}`}>
+
+                    {/* Match your preview route */}
+                    <Link href={`/organizer/events/${event.id}/preview`}>
                       <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <Eye className="w-4 h-4" />
                         Preview
                       </button>
                     </Link>
+
                     <Link href={`/organizer/analytics/${event.id}`}>
                       <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <BarChart3 className="w-4 h-4" />
                         Analytics
                       </button>
                     </Link>
+
                     <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                       <Share2 className="w-4 h-4" />
                       Share
                     </button>
+
                     <button className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors">
                       <MoreVertical className="w-5 h-5" />
                     </button>
@@ -450,7 +565,7 @@ export default function ManageEventsPage() {
           ))}
 
           {/* Empty State */}
-          {filteredEvents.length === 0 && (
+          {!loading && filteredEvents.length === 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
               <Calendar className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <h3 className="text-white font-bold text-xl mb-2">No events found</h3>

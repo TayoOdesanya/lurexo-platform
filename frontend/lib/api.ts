@@ -1,15 +1,19 @@
 // frontend/lib/api.ts
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * Base JSON request helper (no auth header).
+ */
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
+
   const res = await fetch(url, {
     ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init?.headers ?? {}),
     },
-    credentials: "include", // safe even if you don't use cookies
     cache: "no-store",
   });
 
@@ -22,59 +26,86 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-// ---- Types (loose on purpose because your list page suggests the API returns computed fields like location, capacity, etc.)
-export type ApiEvent = {
+/**
+ * JSON request helper that adds Authorization: Bearer <token>
+ */
+export async function apiRequestAuth<T>(
+  path: string,
+  accessToken: string,
+  init?: RequestInit
+): Promise<T> {
+  return apiRequest<T>(path, {
+    ...init,
+    headers: {
+      ...(init?.headers ?? {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+// -------------------------
+// AUTH API (NestJS)
+// -------------------------
+
+export type AuthUser = {
   id: string;
-  title?: string;
-  description?: string;
-  category?: string;
-
-  // list page fields (already working)
-  location?: string;
-  ticketPrice?: number | string;
-  serviceFee?: number | string;
-  ticketsSold?: number;
-  capacity?: number;
-
-  // prisma-ish fields
-  venue?: string;
-  address?: string;
-  city?: string;
-  country?: string;
-  postalCode?: string;
-
-  heroImage?: string;
-  imageUrl?: string;
-  galleryImages?: string[];
-
-  eventDate?: string;
-  doorsOpen?: string | null;
-  eventEnd?: string | null;
-
-  status?: string; // DRAFT/PUBLISHED etc
-
-  allowResale?: boolean;
-  resaleCapValue?: number | null;
-
-  organizer?: {
-    name?: string;
-    username?: string;
-    avatar?: string;
-    verified?: boolean;
-  };
-
-  // if API includes tiers relation
-  ticketTiers?: Array<{
-    id: string;
-    name: string;
-    description?: string | null;
-    price: number; // likely pence if prisma
-    quantity: number;
-    quantitySold: number;
-  }>;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  role?: string;
+  emailVerified?: boolean;
 };
 
-export async function fetchEvents(): Promise<ApiEvent[]> {
+export type RegisterResponse = {
+  message: string;
+  user: AuthUser;
+};
+
+export type LoginResponse = {
+  user: AuthUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type RefreshResponse = {
+  accessToken: string;
+  refreshToken: string;
+};
+
+export const AuthApi = {
+  register: (payload: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    role?: string;
+  }) =>
+    apiRequest<RegisterResponse>(`/auth/register`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  login: (payload: { email: string; password: string }) =>
+    apiRequest<LoginResponse>(`/auth/login`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  refresh: (payload: { refreshToken: string }) =>
+    apiRequest<RefreshResponse>(`/auth/refresh`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  me: (accessToken: string) => apiRequestAuth<AuthUser>(`/auth/me`, accessToken),
+};
+
+// -------------------------
+// EVENTS API (keep your existing fetchEvents)
+// -------------------------
+
+export async function fetchEvents() {
+  console.log("API_BASE_URL:", API_BASE_URL);
   const url = `${API_BASE_URL}/events`;
   console.log("Fetching:", url);
 
@@ -85,34 +116,3 @@ export async function fetchEvents(): Promise<ApiEvent[]> {
   }
   return response.json();
 }
-
-// ---- CRUD
-export const EventsApi = {
-  list: () => request<ApiEvent[]>("/events"),
-
-  getById: (id: string) => request<ApiEvent>(`/events/${id}`),
-
-  // Update event (draft edits). Payload depends on your backend DTO.
-  update: (id: string, payload: Partial<ApiEvent>) =>
-    request<ApiEvent>(`/events/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    }),
-
-  patch: (id: string, payload: Partial<ApiEvent>) =>
-    request<ApiEvent>(`/events/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
-
-  // Publish: use your actual backend route if different
-  publish: (id: string) =>
-    request<ApiEvent>(`/events/${id}/publish`, {
-      method: "POST",
-    }),
-
-  delete: (id: string) =>
-    request<void>(`/events/${id}`, {
-      method: "DELETE",
-    }),
-};
