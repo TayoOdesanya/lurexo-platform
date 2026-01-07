@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import path from "path";
-import crypto from "crypto";
-import { mkdir, writeFile } from "fs/promises";
 
 export const runtime = "nodejs";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/$/, "");
 
 function getBearerToken(req: Request): string {
   const auth = req.headers.get("authorization") || req.headers.get("Authorization");
@@ -15,95 +12,120 @@ function getBearerToken(req: Request): string {
   return token;
 }
 
-async function getCurrentUserIdFromNest(accessToken: string): Promise<string> {
-  const res = await fetch(`${API_BASE_URL}/auth/me`, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    cache: "no-store",
-  });
+function mapCategory(uiCategory: string): string {
+  const v = (uiCategory || "").toLowerCase();
+  switch (v) {
+    case "music":
+      return "MUSIC";
+    case "sports":
+      return "SPORTS";
+    case "arts":
+      return "ARTS";
+    case "comedy":
+      return "COMEDY";
+    case "theatre":
+    case "theater":
+      return "THEATER";
+    case "business":
+      return "CONFERENCE";
+    case "food":
+      return "OTHER";
+    case "other":
+    default:
+      return "OTHER";
+  }
+}
 
-  if (!res.ok) throw new Error("Unauthenticated");
-
-  const me = (await res.json()) as { id: string };
-  if (!me?.id) throw new Error("Unauthenticated");
-  return me.id;
+function toIsoEventDate(eventDate: string, eventTime: string): string {
+  // eventDate: "2026-03-08", eventTime: "10:15"
+  const d = new Date(`${eventDate}T${eventTime || "00:00"}:00`);
+  return d.toISOString();
 }
 
 export async function POST(req: Request) {
   try {
-    // ✅ infer organiserId from logged-in user
     const accessToken = getBearerToken(req);
-    const organiserId = await getCurrentUserIdFromNest(accessToken);
 
-    const form = await req.formData();
+    const incoming = await req.formData();
 
-    const eventName = String(form.get("eventName") ?? "");
-    const category = String(form.get("category") ?? "");
-    const shortDescription = String(form.get("shortDescription") ?? "");
-    const longDescription = String(form.get("longDescription") ?? "");
-    const eventDate = String(form.get("eventDate") ?? "");
-    const eventTime = String(form.get("eventTime") ?? "");
-    const venue = String(form.get("venue") ?? "");
-    const address = String(form.get("address") ?? "");
-    const city = String(form.get("city") ?? "");
-    const postcode = String(form.get("postcode") ?? "");
-    const status = String(form.get("status") ?? "DRAFT");
+    // Read UI fields
+    const eventName = String(incoming.get("eventName") ?? "");
+    const categoryUi = String(incoming.get("category") ?? "");
+    const shortDescription = String(incoming.get("shortDescription") ?? "");
+    const longDescription = String(incoming.get("longDescription") ?? "");
+    const eventDate = String(incoming.get("eventDate") ?? "");
+    const eventTime = String(incoming.get("eventTime") ?? "");
+    const venue = String(incoming.get("venue") ?? "");
+    const address = String(incoming.get("address") ?? "");
+    const city = String(incoming.get("city") ?? "");
+    const postcode = String(incoming.get("postcode") ?? "");
+    const status = String(incoming.get("status") ?? "DRAFT");
+    const totalCapacityStr = String(incoming.get("totalCapacity") ?? "");
 
-    // ✅ save cover image to /public/events/<organiserId>/
-    const coverImage = form.get("coverImage");
-    let coverImageUrl = "";
+    // Minimal early checks (optional; keeps UI errors nice)
+    if (!eventName.trim()) return NextResponse.json({ error: "eventName is required" }, { status: 400 });
+    if (!categoryUi) return NextResponse.json({ error: "category is required" }, { status: 400 });
+    if (!shortDescription.trim()) return NextResponse.json({ error: "shortDescription is required" }, { status: 400 });
+    if (!eventDate) return NextResponse.json({ error: "eventDate is required" }, { status: 400 });
 
-    if (coverImage && coverImage instanceof File && coverImage.size > 0) {
-      const bytes = await coverImage.arrayBuffer();
-      const buffer = Buffer.from(bytes);
+    const mappedCategory = mapCategory(categoryUi);
+    const isoEventDate = toIsoEventDate(eventDate, eventTime);
 
-      const dir = path.join(process.cwd(), "public", "events", organiserId);
-      await mkdir(dir, { recursive: true });
+    // Required by CreateEventDto
+    const saleStartDate = new Date().toISOString();
+    const saleEndDate = isoEventDate;
 
-      const ext = path.extname(coverImage.name) || ".jpg";
-      const filename = `${crypto.randomUUID()}${ext}`;
-      const filepath = path.join(dir, filename);
+    const totalCapacity = Number.parseInt(totalCapacityStr || "100", 10);
+    const safeCapacity = Number.isFinite(totalCapacity) ? totalCapacity : 100;
 
-      await writeFile(filepath, buffer);
+    // Build DTO-shaped multipart payload for NestJS
+    const fd = new FormData();
+    fd.append("title", eventName);
+    fd.append("description", (longDescription || shortDescription).trim());
+    fd.append("category", mappedCategory);
+    fd.append("venue", venue);
+    fd.append("address", address);
+    fd.append("city", city);
+    fd.append("country", "United Kingdom");
+    fd.append("postalCode", postcode);
+    fd.append("eventDate", isoEventDate);
+    fd.append("saleStartDate", saleStartDate);
+    fd.append("saleEndDate", saleEndDate);
+    fd.append("totalCapacity", String(safeCapacity));
+    fd.append("status", status);
 
-      coverImageUrl = `/events/${organiserId}/${filename}`;
+    // File field name MUST match FileInterceptor('heroImage') on the NestJS side
+    const coverImage = incoming.get("coverImage");
+    if (coverImage instanceof File && coverImage.size > 0) {
+      fd.append("coverImage", coverImage, coverImage.name);
+
     }
 
-    const event = {
-      organiserId,
-      eventName,
-      category,
-      shortDescription,
-      longDescription,
-      eventDate,
-      eventTime,
-      venue,
-      address,
-      city,
-      postcode,
-      status,
-      coverImageUrl,
-      createdAtUtc: new Date().toISOString(),
-    };
+    const upstream = await fetch(`${API_BASE_URL}/events`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        // Do NOT set Content-Type for multipart; fetch sets the boundary.
+      },
+      body: fd,
+      cache: "no-store",
+    });
 
-    // TODO: persist to your NestJS API or DB
-    // Example: forward to NestJS events endpoint:
-    // const created = await fetch(`${API_BASE_URL}/events`, {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    //   body: JSON.stringify(event),
-    // });
-    // if (!created.ok) throw new Error(await created.text());
-    // const createdEvent = await created.json();
+    // ✅ Transparent pass-through of the real upstream body + status + content-type
+    const contentType = upstream.headers.get("content-type") || "application/json";
+    const raw = await upstream.text();
 
-    return NextResponse.json({ ok: true, event }, { status: 201 });
+    return new NextResponse(raw, {
+      status: upstream.status,
+      headers: {
+        "content-type": contentType,
+      },
+    });
   } catch (e: any) {
     const msg = e?.message ?? "Unknown error";
     return NextResponse.json(
-      { ok: false, error: msg },
-      { status: msg === "Unauthenticated" ? 401 : 500 }
+      { error: msg },
+      { status: msg === "Unauthenticated" ? 401 : 500 },
     );
   }
 }

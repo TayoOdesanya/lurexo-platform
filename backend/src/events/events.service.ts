@@ -1,50 +1,111 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventStatus } from '@prisma/client';
 
 @Injectable()
 export class EventsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
-  async create(organizerId: string, createEventDto: CreateEventDto) {
+  /**
+   * Creates an event and (optionally) uploads a cover image to Azure Blob Storage.
+   * Controller passes coverImage from FileInterceptor('coverImage').
+   */
+  async create(
+    organizerId: string,
+    createEventDto: CreateEventDto,
+    coverImage?: Express.Multer.File,
+  ) {
     // Generate slug from title
     const slug = this.generateSlug(createEventDto.title);
 
-    // Check if slug already exists
+    // Check if slug already exists (very unlikely because we add random suffix, but keep safety)
     const existingEvent = await this.prisma.event.findUnique({
       where: { slug },
     });
 
     if (existingEvent) {
-      throw new BadRequestException('An event with a similar title already exists');
+      throw new BadRequestException(
+        'An event with a similar title already exists',
+      );
     }
 
-    const event = await this.prisma.event.create({
-      data: {
-        ...createEventDto,
-        slug,
-        organizerId,
-        status: 'DRAFT',
-        galleryImages: createEventDto.galleryImages || [],
-      },
-      include: {
-        organizer: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            username: true,    // ADDED
-            avatar: true,      // ADDED
-            verified: true,    // ADDED
+    // Upload cover image (heroImage) first, so we can store the URL in DB
+    let heroImageUrl = createEventDto.heroImage; // DTO requires a string; allow client to send placeholder
+    let heroImageBlobName: string | null = null;
+
+    if (coverImage?.buffer?.length) {
+      try {
+        const uploaded = await this.storage.uploadEventCoverImage(
+          organizerId,
+          coverImage,
+        );
+        heroImageUrl = uploaded.url;
+        heroImageBlobName = uploaded.blobName;
+      } catch (e) {
+        throw new InternalServerErrorException('Failed to upload cover image');
+      }
+    }
+
+    try {
+      const event = await this.prisma.event.create({
+        data: {
+          ...createEventDto,
+          slug,
+          organizerId,
+          // If you want drafts from the UI, keep this DRAFT.
+          // If you want status to come from the UI, add status to DTO + validation.
+          status: 'DRAFT',
+          heroImage: heroImageUrl,
+          galleryImages: createEventDto.galleryImages || [],
+          // If you decide to store the blob name in DB later, add a column first.
+          // heroImageBlobName: heroImageBlobName ?? undefined,
+        },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              username: true,
+              avatar: true,
+              verified: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    return event;
+      // Transform organizer data like your other endpoints
+      return {
+        ...event,
+        organizer: event.organizer
+          ? {
+              id: event.organizer.id,
+              name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+              email: event.organizer.email,
+              username: event.organizer.username,
+              avatar: event.organizer.avatar,
+              verified: event.organizer.verified,
+            }
+          : null,
+      };
+    } catch (e) {
+      // Optional: if DB create fails after upload, you may want to delete the uploaded blob to avoid orphans.
+      // if (heroImageBlobName) await this.storage.deleteBlob(heroImageBlobName).catch(() => undefined);
+      throw e;
+    }
   }
 
   async findAll(filters?: {
@@ -86,9 +147,9 @@ export class EventsService {
             id: true,
             firstName: true,
             lastName: true,
-            username: true,    // ADDED
-            avatar: true,      // ADDED
-            verified: true,    // ADDED
+            username: true,
+            avatar: true,
+            verified: true,
           },
         },
         ticketTiers: {
@@ -105,16 +166,17 @@ export class EventsService {
       orderBy: { eventDate: 'asc' },
     });
 
-    // Transform to format organizer data properly
-    return events.map(event => ({
+    return events.map((event) => ({
       ...event,
-      organizer: event.organizer ? {
-        id: event.organizer.id,
-        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
-        username: event.organizer.username,
-        avatar: event.organizer.avatar,
-        verified: event.organizer.verified,
-      } : null,
+      organizer: event.organizer
+        ? {
+            id: event.organizer.id,
+            name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+            username: event.organizer.username,
+            avatar: event.organizer.avatar,
+            verified: event.organizer.verified,
+          }
+        : null,
     }));
   }
 
@@ -128,9 +190,9 @@ export class EventsService {
             firstName: true,
             lastName: true,
             email: true,
-            username: true,    // ADDED
-            avatar: true,      // ADDED
-            verified: true,    // ADDED
+            username: true,
+            avatar: true,
+            verified: true,
           },
         },
         ticketTiers: {
@@ -143,17 +205,18 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    // Transform organizer data
     return {
       ...event,
-      organizer: event.organizer ? {
-        id: event.organizer.id,
-        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
-        email: event.organizer.email,
-        username: event.organizer.username,
-        avatar: event.organizer.avatar,
-        verified: event.organizer.verified,
-      } : null,
+      organizer: event.organizer
+        ? {
+            id: event.organizer.id,
+            name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+            email: event.organizer.email,
+            username: event.organizer.username,
+            avatar: event.organizer.avatar,
+            verified: event.organizer.verified,
+          }
+        : null,
     };
   }
 
@@ -166,9 +229,9 @@ export class EventsService {
             id: true,
             firstName: true,
             lastName: true,
-            username: true,    // ADDED
-            avatar: true,      // ADDED
-            verified: true,    // ADDED
+            username: true,
+            avatar: true,
+            verified: true,
           },
         },
         ticketTiers: {
@@ -182,16 +245,17 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    // Transform organizer data
     return {
       ...event,
-      organizer: event.organizer ? {
-        id: event.organizer.id,
-        name: `${event.organizer.firstName} ${event.organizer.lastName}`,
-        username: event.organizer.username,
-        avatar: event.organizer.avatar,
-        verified: event.organizer.verified,
-      } : null,
+      organizer: event.organizer
+        ? {
+            id: event.organizer.id,
+            name: `${event.organizer.firstName} ${event.organizer.lastName}`,
+            username: event.organizer.username,
+            avatar: event.organizer.avatar,
+            verified: event.organizer.verified,
+          }
+        : null,
     };
   }
 
@@ -224,12 +288,10 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    // Check if user is the organizer
     if (event.organizerId !== userId) {
       throw new ForbiddenException('You can only update your own events');
     }
 
-    // If publishing, set publishedAt timestamp
     const updateData: any = { ...updateEventDto };
     if (updateEventDto.status === 'PUBLISHED' && event.status === 'DRAFT') {
       updateData.publishedAt = new Date();
@@ -245,9 +307,9 @@ export class EventsService {
             firstName: true,
             lastName: true,
             email: true,
-            username: true,    // ADDED
-            avatar: true,      // ADDED
-            verified: true,    // ADDED
+            username: true,
+            avatar: true,
+            verified: true,
           },
         },
         ticketTiers: true,
@@ -269,17 +331,17 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    // Check if user is the organizer
     if (event.organizerId !== userId) {
       throw new ForbiddenException('You can only delete your own events');
     }
 
-    // Don't allow deletion if there are completed orders
     if (event.orders.length > 0) {
       throw new BadRequestException(
         'Cannot delete event with completed orders. Cancel the event instead.',
       );
     }
+
+    // Optional: if you add blob-name storage later, delete the blob here too.
 
     await this.prisma.event.delete({
       where: { id },
@@ -297,7 +359,6 @@ export class EventsService {
       throw new NotFoundException('Event not found');
     }
 
-    // Check if user is the organizer
     if (event.organizerId !== userId) {
       throw new ForbiddenException('You can only cancel your own events');
     }
@@ -306,9 +367,6 @@ export class EventsService {
       where: { id },
       data: { status: 'CANCELLED' },
     });
-
-    // TODO: Notify all ticket holders about cancellation
-    // TODO: Process refunds
 
     return cancelledEvent;
   }
@@ -319,7 +377,6 @@ export class EventsService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    // Add random suffix to ensure uniqueness
     const randomSuffix = Math.random().toString(36).substring(2, 8);
     return `${baseSlug}-${randomSuffix}`;
   }

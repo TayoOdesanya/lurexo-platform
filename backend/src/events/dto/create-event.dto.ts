@@ -1,5 +1,17 @@
-import { IsString, IsEnum, IsDateString, IsInt, Min, IsOptional, IsArray, MinLength, IsNumber } from 'class-validator';
-import { EventCategory } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsEnum,
+  IsDateString,
+  IsInt,
+  Min,
+  IsOptional,
+  IsArray,
+  MinLength,
+  IsNumber,
+  IsUrl,
+} from 'class-validator';
+import { EventCategory, EventStatus } from '@prisma/client';
 
 export class CreateEventDto {
   @IsString()
@@ -13,8 +25,17 @@ export class CreateEventDto {
   @IsEnum(EventCategory)
   category: EventCategory;
 
+  /**
+   * ✅ IMPORTANT:
+   * When using multipart upload, you send the image file separately (e.g. FileInterceptor('heroImage')).
+   * The controller/service uploads to Blob and then sets dto.heroImage = uploadedUrl.
+   * So heroImage must be optional here.
+   */
+  @IsOptional()
   @IsString()
-  heroImage: string;
+  // Optional: if you always store a URL here, keep this to validate it when present
+  @IsUrl({ require_tld: false }, { message: 'heroImage must be a valid URL' })
+  heroImage?: string;
 
   @IsArray()
   @IsOptional()
@@ -36,23 +57,25 @@ export class CreateEventDto {
   @IsString()
   postalCode: string;
 
-  @IsNumber()
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   latitude?: number;
 
-  @IsNumber()
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   longitude?: number;
 
   @IsDateString()
   eventDate: string;
 
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   doorsOpen?: string;
 
-  @IsDateString()
   @IsOptional()
+  @IsDateString()
   eventEnd?: string;
 
   @IsString()
@@ -65,12 +88,22 @@ export class CreateEventDto {
   @IsDateString()
   saleEndDate: string;
 
+  @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
-  @IsOptional()
   maxTicketsPerOrder?: number = 10;
 
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   totalCapacity: number;
+
+  /**
+   * ✅ Optional: support draft/publish from UI
+   * Prisma has default(DRAFT) anyway, but allowing it avoids "property status should not exist"
+   */
+  @IsOptional()
+  @IsEnum(EventStatus)
+  status?: EventStatus;
 }

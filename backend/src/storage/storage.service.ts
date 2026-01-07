@@ -1,69 +1,72 @@
-// C:\Dev\lurexo\backend\src\storage\storage.service.ts
-import { Injectable } from '@nestjs/common';
-import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { BlobServiceClient } from '@azure/storage-blob';
 import { randomUUID } from 'crypto';
-import path from 'path';
+import { extname } from 'path';
 
 @Injectable()
 export class StorageService {
+  private readonly logger = new Logger(StorageService.name);
+
+  private readonly blobServiceClient: BlobServiceClient;
   private readonly containerName: string;
-  private readonly containerClient: ContainerClient;
-  private readonly publicBaseUrl?: string; // optional override for local/azure
+  private readonly publicBaseUrl: string;
 
   constructor() {
-    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-    if (!connectionString) {
-      throw new Error('AZURE_STORAGE_CONNECTION_STRING is missing');
-    }
+    const conn = process.env.AZURE_STORAGE_CONNECTION_STRING;
+    const container = process.env.AZURE_STORAGE_CONTAINER;
+    const baseUrl = process.env.AZURE_STORAGE_PUBLIC_BASE_URL;
 
-    this.containerName = process.env.AZURE_STORAGE_CONTAINER || 'events';
-    this.publicBaseUrl = process.env.AZURE_STORAGE_PUBLIC_BASE_URL; // optional
+    if (!conn) throw new Error('AZURE_STORAGE_CONNECTION_STRING is missing');
+    if (!container) throw new Error('AZURE_STORAGE_CONTAINER is missing');
+    if (!baseUrl) throw new Error('AZURE_STORAGE_PUBLIC_BASE_URL is missing');
 
-    const blobService = BlobServiceClient.fromConnectionString(connectionString);
-    this.containerClient = blobService.getContainerClient(this.containerName);
+    this.blobServiceClient = BlobServiceClient.fromConnectionString(conn);
+    this.containerName = container;
+
+    // Must be base account url, NOT including container name
+    // e.g. http://127.0.0.1:10000/devstoreaccount1
+    this.publicBaseUrl = baseUrl.replace(/\/+$/, '');
   }
 
-  async ensureContainerExists() {
-    await this.containerClient.createIfNotExists({
-      access: 'blob', // public read (good for event images)
-    });
+  private async ensureContainer() {
+    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+    await containerClient.createIfNotExists({ access: 'blob' }); // public read
+    return containerClient;
   }
 
-  /**
-   * Uploads a file and returns a public URL.
-   * organizerId is used to prefix path: events/<organizerId>/<uuid>.jpg
-   */
-  async uploadEventImage(file: Express.Multer.File, organizerId: string) {
-    await this.ensureContainerExists();
+  async uploadEventCoverImage(
+    organiserId: string,
+    file: Express.Multer.File,
+  ): Promise<{ url: string; blobName: string }> {
+    if (!file) throw new BadRequestException('No file provided');
+    if (!file.buffer?.length) throw new BadRequestException('Empty file buffer');
+    if (!organiserId) throw new BadRequestException('Missing organiserId');
 
-    const ext = this.safeExt(file.originalname, file.mimetype);
-    const blobName = `events/${organizerId}/${randomUUID()}${ext}`;
+    const containerClient = await this.ensureContainer();
 
-    const blockBlob = this.containerClient.getBlockBlobClient(blobName);
+    // Preserve extension if present; default to .jpg
+    const originalExt = extname(file.originalname ?? '').toLowerCase();
+    const safeExt =
+      originalExt && originalExt.length <= 10 ? originalExt : '.jpg';
 
-    await blockBlob.uploadData(file.buffer, {
+    const filename = `${randomUUID()}${safeExt}`;
+
+    // Keep images organized
+    const blobName = `events/${organiserId}/${filename}`;
+
+    const blobClient = containerClient.getBlockBlobClient(blobName);
+
+    await blobClient.uploadData(file.buffer, {
       blobHTTPHeaders: {
-        blobContentType: file.mimetype || 'application/octet-stream',
+        blobContentType: file.mimetype || 'image/jpeg',
       },
     });
 
-    // For Azurite you may want to override the base URL because the SDK url is fine,
-    // but sometimes people prefer a stable base.
-    if (this.publicBaseUrl) {
-      return `${this.publicBaseUrl.replace(/\/$/, '')}/${this.containerName}/${blobName}`;
-    }
+    // Public URL (Azurite-compatible) = baseUrl + container + blobName
+    const url = `${this.publicBaseUrl}/${this.containerName}/${blobName}`;
 
-    return blockBlob.url;
-  }
+    this.logger.debug(`Uploaded cover image: ${blobName}`);
 
-  private safeExt(originalName: string, mime?: string) {
-    // prefer original extension, fallback from mime
-    const ext = path.extname(originalName || '').toLowerCase();
-    if (ext && ext.length <= 10) return ext;
-
-    if (mime === 'image/jpeg') return '.jpg';
-    if (mime === 'image/png') return '.png';
-    if (mime === 'image/webp') return '.webp';
-    return '';
+    return { url, blobName };
   }
 }

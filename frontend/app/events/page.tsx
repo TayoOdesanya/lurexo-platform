@@ -39,22 +39,22 @@ export default function EventsPage() {
 
     const categories = ['all', 'music', 'comedy', 'sports', 'theatre', 'food', 'art', 'conference', 'workshop'];
 
-    const filteredEvents = events.filter((event: any) => {
-        const matchesCategory = selectedCategory === 'all' || event.category === selectedCategory;
-        const matchesSearch =
-            event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            event.location.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchesCategory && matchesSearch;
+    const filteredEvents = (events as any[]).filter((event: any) => {
+    const eventCategory = String(event.category || '').toLowerCase();
+
+    const matchesCategory =
+        selectedCategory === 'all' || eventCategory === selectedCategory.toLowerCase();
+
+    const locationText =
+        String(event.location || `${event.venue || ''} ${event.city || ''}` || '').toLowerCase();
+
+    const matchesSearch =
+        String(event.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        locationText.includes(searchTerm.toLowerCase());
+
+    return matchesCategory && matchesSearch;
     });
 
-    // Prevent hydration mismatch by not rendering theme-dependent content until mounted
-    if (!mounted) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-            </div>
-        );
-    }
 
     // Theme classes
     const bgPrimary = isDarkMode ? 'bg-black' : 'bg-gray-50';
@@ -194,9 +194,9 @@ export default function EventsPage() {
                                     (event.galleryImages?.length ? event.galleryImages[0] : null);
 
                                 const normalizedImageSrc =
-                                    imageSrc && typeof imageSrc === 'string'
-                                        ? (imageSrc.startsWith('/') ? imageSrc : `/${imageSrc}`)
-                                        : null;
+                                imageSrc && typeof imageSrc === 'string'
+                                    ? (/^https?:\/\//i.test(imageSrc) ? imageSrc : (imageSrc.startsWith('/') ? imageSrc : `/${imageSrc}`))
+                                    : null;
 
                                 const onCardClick = () => router.push(`/events/${event.id}`);
                                 const onCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -287,7 +287,10 @@ export default function EventsPage() {
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                                                         </svg>
-                                                        <span className="truncate">{event.location}</span>
+                                                        <span className="truncate">
+                                                            {event.location || [event.venue, event.city].filter(Boolean).join(' • ') || 'Location TBC'}
+                                                        </span>
+
                                                     </div>
 
                                                     <div className={`flex items-center ${textSecondary} text-sm`}>

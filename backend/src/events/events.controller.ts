@@ -8,26 +8,98 @@ import {
   Delete,
   UseGuards,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  Logger,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+
 import { UserRole, EventStatus } from '@prisma/client';
+import { StorageService } from '../storage/storage.service';
 
 @Controller('events')
 export class EventsController {
-  constructor(private readonly eventsService: EventsService) {}
+  private readonly logger = new Logger(EventsController.name);
+
+  constructor(
+    private readonly eventsService: EventsService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Post()
-  create(@CurrentUser() user: any, @Body() createEventDto: CreateEventDto) {
-    return this.eventsService.create(user.id, createEventDto);
+  @UseInterceptors(
+    FileInterceptor('coverImage', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      fileFilter: (_req, file, cb) => {
+        // Accept common image types only
+        const ok = /^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype);
+        if (!ok) return cb(new BadRequestException('coverImage must be an image file'), false);
+        cb(null, true);
+      },
+    }),
+  )
+  async create(
+    @CurrentUser() user: any,
+    @Body() createEventDto: CreateEventDto,
+    @UploadedFile() coverImageFile?: Express.Multer.File,
+  ) {
+    // ✅ Debug logging (keep it concise; avoid logging raw buffers)
+    this.logger.debug(
+      `POST /events by user=${user?.id} role=${user?.role ?? 'n/a'}`,
+    );
+    this.logger.debug(`DTO keys: ${Object.keys(createEventDto ?? {}).join(', ')}`);
+
+    if (coverImageFile) {
+      this.logger.debug(
+        `File: fieldname=${coverImageFile.fieldname} originalname=${coverImageFile.originalname} mimetype=${coverImageFile.mimetype} size=${coverImageFile.size}`,
+      );
+    } else {
+      this.logger.warn(
+        `No coverImage file received (check multipart field name matches FileInterceptor('coverImage'))`,
+      );
+    }
+
+    // If your UI always sends an image, enforce it:
+    const REQUIRE_IMAGE = true;
+    if (REQUIRE_IMAGE && (!coverImageFile || coverImageFile.size <= 0)) {
+      throw new BadRequestException('coverImage file is required');
+    }
+
+    // Upload only if a file exists
+    if (coverImageFile && coverImageFile.size > 0) {
+      // StorageService returns: { url, blobName }
+      const uploaded = await this.storageService.uploadEventCoverImage(
+        user.id,
+        coverImageFile,
+      );
+
+      this.logger.debug(`Uploaded cover image to blob: ${uploaded.blobName}`);
+
+      // ✅ Assign URL into dto.heroImage (string)
+      createEventDto.heroImage = uploaded.url;
+    }
+
+    // Create event (service can ignore coverImageFile if heroImage is already set)
+    const created = await this.eventsService.create(
+      user.id,
+      createEventDto,
+      coverImageFile,
+    );
+
+    this.logger.debug(`Event created: id=${created?.id ?? 'n/a'}`);
+    return created;
   }
 
   @Public()

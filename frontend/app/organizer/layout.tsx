@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { Mail } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Plus,
@@ -20,42 +19,85 @@ import {
   HelpCircle,
   LogOut,
   ChevronLeft,
-  UserPlus,  // For Collaborators icon
+  UserPlus,
+  Mail,
 } from 'lucide-react';
 
-export default function OrganizerLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+import { useAuth } from '@/context/AuthContext';
+
+export default function OrganizerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+
+  const { user, loading, logout, checkAuth } = useAuth();
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const organizerName = 'Alex Morgan';
-
-  // Authentication check
+  // Ensure auth state is loaded (safe no-op if already loaded)
   useEffect(() => {
-    const isAuthenticated = true; // Replace with actual auth check
-    
-    if (!isAuthenticated) {
-      router.push('/auth/organizer-login');
-    }
-  }, [router]);
+    checkAuth().catch(() => void 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Navigation items
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/organizer/dashboard' },
-    { icon: Plus, label: 'Create Event', href: '/organizer/create-event' },
-    { icon: Calendar, label: 'Manage Events', href: '/organizer/manage-events' },
-    { icon: BarChart3, label: 'Analytics', href: '/organizer/analytics' },
-    { icon: Users, label: 'Audience', href: '/organizer/audience' },
-    { icon: UserPlus, label: 'Collaborators', href: '/organizer/collaborators' },
-    { icon: Mail, label: 'Marketing', href: '/organizer/marketing' },
-    { icon: CreditCard, label: 'Payouts', href: '/organizer/payouts' },
-    { icon: Settings, label: 'Settings', href: '/organizer/settings' },
-  ];
+  // Protect organizer routes
+  useEffect(() => {
+    if (loading) return;
+
+    if (!user) {
+      const redirect = encodeURIComponent(pathname || '/organizer/dashboard');
+      router.push(`/organizer/login?redirect=${redirect}`);
+      return;
+    }
+
+    // Keep this light for now; you said role-based redirect is later.
+    // But do block obvious non-organizer users if role exists.
+    const role = (user.role || '').toUpperCase();
+    if (role && role !== 'ORGANIZER' && role !== 'ADMIN') {
+      router.push('/');
+    }
+  }, [loading, user, router, pathname]);
+
+  const navItems = useMemo(
+    () => [
+      { icon: LayoutDashboard, label: 'Dashboard', href: '/organizer/dashboard' },
+      { icon: Plus, label: 'Create Event', href: '/organizer/create-event' },
+      { icon: Calendar, label: 'Manage Events', href: '/organizer/manage-events' },
+      { icon: BarChart3, label: 'Analytics', href: '/organizer/analytics' },
+      { icon: Users, label: 'Audience', href: '/organizer/audience' },
+      { icon: UserPlus, label: 'Collaborators', href: '/organizer/collaborators' },
+      { icon: Mail, label: 'Marketing', href: '/organizer/marketing' },
+      { icon: CreditCard, label: 'Payouts', href: '/organizer/payouts' },
+      { icon: Settings, label: 'Settings', href: '/organizer/settings' },
+    ],
+    [],
+  );
+
+  const organizerName = user?.name || user?.email?.split('@')?.[0] || 'Organizer';
+  const organizerId = user?.id || '';
+  const initials =
+    (organizerName || 'O')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]!.toUpperCase())
+      .join('') || 'O';
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+    } finally {
+      router.push('/organizer/login');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black flex">
@@ -75,9 +117,11 @@ export default function OrganizerLayout({
                 </div>
                 <span className="text-white font-bold text-lg">Lurexo</span>
               </Link>
+
               <button
                 onClick={() => setSidebarOpen(false)}
                 className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                aria-label="Collapse sidebar"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -86,6 +130,7 @@ export default function OrganizerLayout({
             <button
               onClick={() => setSidebarOpen(true)}
               className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center mx-auto"
+              aria-label="Expand sidebar"
             >
               <Ticket className="w-5 h-5 text-white" />
             </button>
@@ -98,14 +143,13 @@ export default function OrganizerLayout({
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
+
               return (
                 <Link key={item.href} href={item.href}>
                   <button
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${
-                      isActive
-                        ? 'bg-purple-600/20 text-purple-400'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                    } ${!sidebarOpen && 'justify-center'}`}
+                      isActive ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                    } ${!sidebarOpen ? 'justify-center' : ''}`}
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     {sidebarOpen && <span>{item.label}</span>}
@@ -115,15 +159,13 @@ export default function OrganizerLayout({
             })}
           </div>
 
-          {/* Divider */}
           <div className="my-4 border-t border-gray-800"></div>
 
-          {/* Secondary nav */}
           <div className="space-y-1">
             <Link href="/">
               <button
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors ${
-                  !sidebarOpen && 'justify-center'
+                  !sidebarOpen ? 'justify-center' : ''
                 }`}
               >
                 <Home className="w-5 h-5 flex-shrink-0" />
@@ -133,7 +175,7 @@ export default function OrganizerLayout({
             <Link href="/help">
               <button
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors ${
-                  !sidebarOpen && 'justify-center'
+                  !sidebarOpen ? 'justify-center' : ''
                 }`}
               >
                 <HelpCircle className="w-5 h-5 flex-shrink-0" />
@@ -145,24 +187,28 @@ export default function OrganizerLayout({
 
         {/* User Profile */}
         <div className="p-3 border-t border-gray-800">
-          <button
-            className={`w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors ${
-              !sidebarOpen && 'justify-center'
+          <div
+            className={`w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 rounded-lg ${
+              !sidebarOpen ? 'justify-center' : ''
             }`}
           >
             <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-white text-sm font-bold">AM</span>
+              <span className="text-white text-sm font-bold">{initials}</span>
             </div>
+
             {sidebarOpen && (
               <div className="flex-1 text-left min-w-0">
                 <p className="text-white text-sm font-medium truncate">{organizerName}</p>
-                <p className="text-gray-400 text-xs">Organizer</p>
+                <p className="text-gray-400 text-xs truncate">{organizerId ? `User ID: ${organizerId}` : 'Organizer'}</p>
               </div>
             )}
-          </button>
-          
+          </div>
+
           {sidebarOpen && (
-            <button className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mt-2 text-sm">
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mt-2 text-sm"
+            >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
             </button>
@@ -172,10 +218,7 @@ export default function OrganizerLayout({
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
-          onClick={() => setMobileMenuOpen(false)}
-        ></div>
+        <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileMenuOpen(false)} />
       )}
 
       {/* Mobile Sidebar */}
@@ -184,7 +227,6 @@ export default function OrganizerLayout({
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
@@ -195,25 +237,24 @@ export default function OrganizerLayout({
           <button
             onClick={() => setMobileMenuOpen(false)}
             className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+            aria-label="Close menu"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto">
           <div className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
+
               return (
                 <Link key={item.href} href={item.href}>
                   <button
                     onClick={() => setMobileMenuOpen(false)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-sm transition-colors ${
-                      isActive
-                        ? 'bg-purple-600/20 text-purple-400'
-                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                      isActive ? 'bg-purple-600/20 text-purple-400' : 'text-gray-400 hover:text-white hover:bg-gray-800'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -242,18 +283,21 @@ export default function OrganizerLayout({
           </div>
         </nav>
 
-        {/* User Profile */}
         <div className="p-3 border-t border-gray-800">
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 rounded-lg">
+          <div className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 rounded-lg">
             <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-bold">AM</span>
+              <span className="text-white text-sm font-bold">{initials}</span>
             </div>
-            <div className="flex-1 text-left">
-              <p className="text-white text-sm font-medium">{organizerName}</p>
-              <p className="text-gray-400 text-xs">Organizer</p>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-white text-sm font-medium truncate">{organizerName}</p>
+              <p className="text-gray-400 text-xs truncate">{organizerId ? `User ID: ${organizerId}` : 'Organizer'}</p>
             </div>
-          </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mt-2 text-sm">
+          </div>
+
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mt-2 text-sm"
+          >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
           </button>
@@ -270,6 +314,7 @@ export default function OrganizerLayout({
                 <button
                   onClick={() => setMobileMenuOpen(true)}
                   className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                  aria-label="Open menu"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
@@ -280,16 +325,21 @@ export default function OrganizerLayout({
                   <span className="text-white font-bold text-lg">Lurexo</span>
                 </Link>
               </div>
+
               <div className="flex items-center gap-2">
-                <button className="relative p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+                <button
+                  className="relative p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                  aria-label="Notifications"
+                >
                   <Bell className="w-5 h-5" />
                   <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
                 </button>
-                <button className="flex items-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors">
+
+                <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">AM</span>
+                    <span className="text-white text-sm font-bold">{initials}</span>
                   </div>
-                </button>
+                </div>
               </div>
             </div>
           </div>
@@ -302,10 +352,15 @@ export default function OrganizerLayout({
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                aria-label="Toggle sidebar"
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <button className="relative p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors">
+
+              <button
+                className="relative p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                aria-label="Notifications"
+              >
                 <Bell className="w-5 h-5" />
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
@@ -315,9 +370,7 @@ export default function OrganizerLayout({
 
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto">
-          <div className="px-4 sm:px-6 lg:px-8 py-8">
-            {children}
-          </div>
+          <div className="px-4 sm:px-6 lg:px-8 py-8">{children}</div>
         </main>
       </div>
     </div>

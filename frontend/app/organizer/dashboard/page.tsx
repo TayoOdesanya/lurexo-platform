@@ -209,7 +209,7 @@ function OrganizerDashboard() {
       {/* Welcome Section */}
       <div className="mb-6 sm:mb-8">
         <h1 className="text-white font-bold text-2xl sm:text-3xl mb-2">
-          WelcomeWelcome back, {user?.name} 👋
+          Welcome back, {user?.name} 👋
 <p className="text-gray-500 text-xs mt-1">
   Organizer ID: {user?.id}
 </p>

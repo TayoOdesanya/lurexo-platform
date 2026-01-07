@@ -19,11 +19,12 @@ import {
 
 function getAccessTokenClient(): string | null {
   try {
-    return localStorage.getItem('accessToken');
+     return localStorage.getItem('authToken') || localStorage.getItem('accessToken');
   } catch {
     return null;
   }
 }
+
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -37,13 +38,14 @@ export default function CreateEventPage() {
 
   // ✅ required: must be logged in so backend can infer organiserId via /auth/me
   useEffect(() => {
-    const token = getAccessTokenClient();
-    if (!token) {
-      router.push('/organizer/login'); // adjust if your route differs
-      return;
-    }
-    setAccessToken(token);
-  }, [router]);
+  const token = getAccessTokenClient();
+  if (!token) {
+    router.push('/login?redirect=' + encodeURIComponent('/organizer/create-event'));
+    return;
+  }
+  setAccessToken(token);
+}, [router]);
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -65,6 +67,7 @@ export default function CreateEventPage() {
 
     // Step 3: Tickets
     ticketTiers: [{ name: 'General Admission', price: '', quantity: '', description: '' }],
+    totalCapacity: '100',
 
     // Step 4: Settings
     status: 'DRAFT',
@@ -213,42 +216,51 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
    * Server route saves image to: /public/events/<userId>/...
    */
   const submitEvent = async (status: 'DRAFT' | 'PUBLISHED') => {
-    if (!accessToken) throw new Error('Not signed in');
+  if (!accessToken) throw new Error('Not signed in');
 
-    const fd = new FormData();
-    fd.append('eventName', formData.eventName);
-    fd.append('category', formData.category);
-    fd.append('shortDescription', formData.shortDescription);
-    fd.append('longDescription', formData.longDescription);
+  const fd = new FormData();
+  fd.append('eventName', formData.eventName);
+  fd.append('category', formData.category);
+  fd.append('shortDescription', formData.shortDescription);
+  fd.append('longDescription', formData.longDescription);
 
-    fd.append('eventDate', formData.eventDate);
-    fd.append('eventTime', formData.eventTime);
-    fd.append('venue', formData.venue);
-    fd.append('address', formData.address);
-    fd.append('city', formData.city);
-    fd.append('postcode', formData.postcode);
+  fd.append('eventDate', formData.eventDate);
+  fd.append('eventTime', formData.eventTime);
+  fd.append('venue', formData.venue);
+  fd.append('address', formData.address);
+  fd.append('city', formData.city);
+  fd.append('postcode', formData.postcode);
 
-    fd.append('status', status);
+  fd.append('status', status);
+  fd.append('totalCapacity', formData.totalCapacity);
 
-    if (formData.coverImage) {
-      fd.append('coverImage', formData.coverImage);
-    }
+  if (formData.coverImage) {
+    // The backend will upload this to Azure Blob Storage
+    fd.append('coverImage', formData.coverImage, formData.coverImage.name);
+    
+  }
 
-    const res = await fetch('/api/events/create', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: fd,
-    });
+  const res = await fetch('/api/events/create', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: fd,
+  });
 
-    if (!res.ok) {
-      const msg = (await res.json().catch(() => null))?.error ?? 'Failed to save event';
-      throw new Error(msg);
-    }
+  if (!res.ok) {
+    const msg =
+      (await res.json().catch(() => null))?.error ??
+      (await res.text().catch(() => '')) ??
+      'Failed to save event';
+    throw new Error(msg);
+  }
 
-    return res.json();
-  };
+  return res.json();
+};
+
+
+
 
   const handleSaveDraft = async () => {
     const err = validateBasics();
@@ -609,12 +621,28 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
 
         {/* Step 3: Tickets (Placeholder) */}
         {currentStep === 3 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <h2 className="text-white font-bold text-lg mb-4">Ticket Tiers</h2>
-            <p className="text-gray-400 mb-6">Configure your ticket types and pricing</p>
-            <div className="text-center py-12">
-              <Ticket className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-500">Ticket configuration coming soon</p>
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-6">
+            <div>
+              <h2 className="text-white font-bold text-lg mb-1">Capacity</h2>
+              <p className="text-gray-400 text-sm">Required. Total number of tickets available for the event.</p>
+            </div>
+
+            <label className="block">
+              <span className="text-white font-medium mb-2 block">Total Capacity *</span>
+              <input
+                type="number"
+                name="totalCapacity"
+                min={1}
+                value={formData.totalCapacity}
+                onChange={handleInputChange}
+                className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                placeholder="e.g., 250"
+                required
+              />
+            </label>
+
+            <div className="text-gray-500 text-sm">
+              Ticket tier creation can come next — for now, this lets your backend create the event successfully.
             </div>
           </div>
         )}
