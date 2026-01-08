@@ -21,7 +21,7 @@ export default function EventsPage() {
     }, []);
 
     useEffect(() => {
-        fetch('http://localhost:3001/api/events')
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/events`)
             .then(res => {
                 if (!res.ok) throw new Error('Failed to fetch');
                 return res.json();

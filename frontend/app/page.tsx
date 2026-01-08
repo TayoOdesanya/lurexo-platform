@@ -37,7 +37,7 @@ const isAbsoluteHttpUrl = (value: unknown): value is string =>
   useEffect(() => {
     setMounted(true);
     // Fetch first 4 events for featured section
-    fetch('http://localhost:3001/api/events')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/events`)
       .then(res => res.json())
       .then(data => setFeaturedEvents(data.slice(0, 4)))
       .catch(err => console.error('Error fetching events:', err));
