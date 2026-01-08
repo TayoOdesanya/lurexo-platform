@@ -6,11 +6,33 @@ import { useTheme } from './context/ThemeContext';
 import Link from 'next/link';
 import { Calendar, MapPin, Check, Shield, ArrowRight, Menu, X } from 'lucide-react';
 
+type HomeEvent = {
+  id: string;
+  title: string;
+  heroImage?: string | null;
+  category?: string | null;
+  eventDate: string;
+
+  // optional: include only what you actually use on this page
+  venue?: string | null;
+  city?: string | null;
+  ticketPrice?: number | string | null; // depends on your API shape
+  serviceFee?: number | string | null;
+};
+
 export default function HomePage() {
   const { isDarkMode, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [featuredEvents, setFeaturedEvents] = useState([]);
+
+const isAbsoluteHttpUrl = (value: unknown): value is string =>
+    typeof value === 'string' && /^https?:\/\//i.test(value);
+
+  const getEventHeroImage = (event: any): string | null => {
+    const hero = event?.heroImage;
+    return isAbsoluteHttpUrl(hero) ? hero : null;
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -191,11 +213,18 @@ export default function HomePage() {
                     transform: idx === 0 ? 'translateY(-10px)' : idx === 3 ? 'translateY(10px)' : 'none'
                   }}
                 >
-                  <img
-                    src={event.imageUrl || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400'}
-                    alt={event.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
+{(() => {
+  const src = getEventHeroImage(event);
+  if (!src) return null;
+
+  return (
+    <img
+      src={src}
+      alt={event.title}
+      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+    />
+  );
+})()}
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-60 group-hover:opacity-40 transition-opacity"></div>
                 </div>
               ))}
@@ -305,13 +334,19 @@ export default function HomePage() {
                 <Link key={event.id} href={`/events/${event.id}`} className="block h-full">
                   <div className={`h-full group relative bg-gradient-to-br ${cardBg} rounded-2xl overflow-hidden border ${border} transition-all duration-300 hover:scale-[1.02] cursor-pointer flex flex-col`}>
                     <div className={`relative h-48 overflow-hidden ${isDarkMode ? 'bg-gradient-to-br from-purple-900/20 to-blue-900/20' : 'bg-gradient-to-br from-purple-100 to-blue-100'}`}>
-                      {event.imageUrl && (
-                        <img
-                          src={event.imageUrl}
-                          alt={event.title}
-                          className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
-                        />
-                      )}
+{(() => {
+  const src = getEventHeroImage(event);
+  if (!src) return null;
+
+  return (
+    <img
+      src={src}
+      alt={event.title}
+      className="w-full h-full object-cover opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"
+    />
+  );
+})()}
+
                       <div className={`absolute inset-0 ${isDarkMode ? 'bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent' : 'bg-gradient-to-t from-white via-white/40 to-transparent'}`}></div>
                       
                       {event.category && (
