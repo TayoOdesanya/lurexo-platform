@@ -66,6 +66,12 @@ type ApiEvent = {
   createdAt?: string | null;
 };
 
+function normalizeImageSrc(src?: string) {
+  if (!src) return undefined;
+  if (/^https?:\/\//i.test(src)) return src;       // blob absolute
+  return src.startsWith('/') ? src : `/${src}`;    // local/public
+}
+
 function safeNumber(v: any, fallback = 0) {
   const n = typeof v === 'string' ? Number(v) : v;
   return Number.isFinite(n) ? n : fallback;
@@ -182,34 +188,47 @@ export default function ManageEventsPage() {
 
   // ✅ load from backend
   useEffect(() => {
-    if (!accessToken) return;
+  if (!accessToken) return;
 
-    let cancelled = false;
+  let cancelled = false;
 
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  (async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // If your backend returns { data: [...] } adjust below accordingly.
-        const apiEvents = await apiRequestAuth<ApiEvent[]>(`/events`, accessToken, { method: 'GET' });
+      // ✅ organizer-specific endpoint (auth)
+      const apiEvents = await apiRequestAuth<ApiEvent[]>(
+        `/events/my-events`,
+        accessToken,
+        { method: 'GET' }
+      );
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        const mapped = (apiEvents ?? []).map(toUiEvent);
-        setEvents(mapped);
-      } catch (e: any) {
-        if (cancelled) return;
-        setError(e?.message ?? 'Failed to load events');
-      } finally {
-        if (!cancelled) setLoading(false);
+      const mapped = (apiEvents ?? []).map(toUiEvent);
+      setEvents(mapped);
+    } catch (e: any) {
+      if (cancelled) return;
+
+      const msg = String(e?.message ?? '');
+      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized')) {
+        try { localStorage.removeItem('accessToken'); } catch {}
+        router.push('/organizer/login');
+        return;
       }
-    })();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [accessToken]);
+      setError(e?.message ?? 'Failed to load events');
+    } finally {
+      if (!cancelled) setLoading(false);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [accessToken, router]);
+
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -443,7 +462,12 @@ export default function ManageEventsPage() {
                 <div className="w-full lg:w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {event.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={event.image} alt={event.name} className="w-full h-full object-cover" />
+                    <img
+                      src={normalizeImageSrc(event.image)}
+                      alt={event.name}
+                      className="w-full h-full object-cover"
+                    />
+
                   ) : (
                     <Calendar className="w-12 h-12 text-purple-400" />
                   )}

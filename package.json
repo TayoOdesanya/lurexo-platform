@@ -1,5 +1,13 @@
 {
-  "dependencies": {
-    "recharts": "^3.5.0"
+  "name": "lurexo",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:backend": "npm --workspace backend run start:dev",
+    "dev": "npm run dev:backend & npm run dev:frontend"
   }
 }

@@ -188,15 +188,19 @@ export default function EventsPage() {
                                 const isAlmostSoldOut = percentSold > 80;
 
                                 // ✅ Image fix: use heroImage or first gallery image
-                                const imageSrc =
-                                    event.heroImage ||
-                                    event.imageUrl ||
-                                    (event.galleryImages?.length ? event.galleryImages[0] : null);
+const isAbsoluteHttpUrl = (value: unknown): value is string =>
+  typeof value === 'string' && /^https?:\/\//i.test(value);
 
-                                const normalizedImageSrc =
-                                imageSrc && typeof imageSrc === 'string'
-                                    ? (/^https?:\/\//i.test(imageSrc) ? imageSrc : (imageSrc.startsWith('/') ? imageSrc : `/${imageSrc}`))
-                                    : null;
+// Only accept blob-style URLs (absolute). Ignore /events/... entirely.
+const imageSrc =
+  (isAbsoluteHttpUrl(event.heroImage) && event.heroImage) ||
+  (isAbsoluteHttpUrl(event.hero_image) && event.hero_image) || // in case snake_case ever appears
+  (isAbsoluteHttpUrl(event.imageUrl) && event.imageUrl) ||
+  (Array.isArray(event.galleryImages)
+    ? event.galleryImages.find(isAbsoluteHttpUrl) ?? null
+    : null);
+
+const normalizedImageSrc = imageSrc; // already absolute or null
 
                                 const onCardClick = () => router.push(`/events/${event.id}`);
                                 const onCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
