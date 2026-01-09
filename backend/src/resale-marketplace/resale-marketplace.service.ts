@@ -15,8 +15,7 @@ export class ResaleMarketplaceService {
     private configService: ConfigService,
   ) {
     this.stripe = new Stripe(this.configService.get('STRIPE_SECRET_KEY'), {
-      apiVersion: '2025-10-29.clover',
-    });
+     });
   }
 
   async createListing(userId: string, createListingDto: CreateListingDto) {
