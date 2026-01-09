@@ -1,30 +1,15 @@
-# ---- Build stage ----
+# Build stage
 FROM node:20-alpine AS builder
 WORKDIR /app
-
 COPY package*.json ./
 RUN npm ci
-
 COPY . .
 RUN npm run build
 
-
-# ---- Runtime stage ----
-FROM node:20-alpine AS runner
+# Run stage
+FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-
-# Install production deps only
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy Next build output + required files
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.* ./ 
-COPY --from=builder /app/package.json ./package.json
-
+COPY --from=builder /app ./
 EXPOSE 3000
-
-# Next.js production server
-CMD ["npm", "run", "start"]
+CMD ["npm", "start"]
