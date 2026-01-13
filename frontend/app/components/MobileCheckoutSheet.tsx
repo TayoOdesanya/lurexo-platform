@@ -4,10 +4,61 @@ import React, { useState, useRef, useEffect } from 'react';
 import { X, Minus, Plus, Check, CreditCard, Lock, ChevronRight, Ticket } from 'lucide-react';
 import Link from 'next/link';
 
-// Mock user state - replace with real auth later
-const mockUser = null;
+// Type definitions
+interface User {
+  email: string;
+  name: string;
+}
 
-const MobileCheckoutSheet = ({ 
+interface Event {
+  id: string;
+  title: string;
+  eventDate: string;
+  location: string;
+  imageUrl?: string;
+}
+
+interface TicketTier {
+  id: string;
+  name: string;
+  price: number;
+  serviceFee: number;
+  available: number;
+}
+
+interface ContactInfo {
+  email: string;
+  name: string;
+  phone: string;
+  createAccount: boolean;
+  password: string;
+}
+
+interface CardInfo {
+  number: string;
+  expiry: string;
+  cvc: string;
+}
+
+interface ConfettiPiece {
+  id: number;
+  left: number;
+  delay: number;
+  duration: number;
+  color: string;
+  spread: number;
+}
+
+interface MobileCheckoutSheetProps {
+  isOpen: boolean;
+  onClose: () => void;
+  event: Event;
+  ticketTiers: TicketTier[];
+  initialTier?: TicketTier;
+  isDarkMode?: boolean;
+}
+
+const MobileCheckoutSheet: React.FC<MobileCheckoutSheetProps> = ({ 
   isOpen, 
   onClose, 
   event, 
@@ -15,8 +66,11 @@ const MobileCheckoutSheet = ({
   initialTier, 
   isDarkMode = true 
 }) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [selectedTier, setSelectedTier] = useState(initialTier || ticketTiers[0]);
+  // Mock user state - replace with real auth later
+const mockUser = null as { email: string; name: string } | null;
+
+const [currentStep, setCurrentStep] = useState(1);
+  const [selectedTier, setSelectedTier] = useState<TicketTier>(initialTier || ticketTiers[0]);
   const [quantity, setQuantity] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -24,24 +78,24 @@ const MobileCheckoutSheet = ({
   const [cardRotation, setCardRotation] = useState(0);
   const [isCardFlipped, setIsCardFlipped] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [confettiPieces, setConfettiPieces] = useState([]);
+  const [confettiPieces, setConfettiPieces] = useState<ConfettiPiece[]>([]);
   const [showTicketFan, setShowTicketFan] = useState(false);
   const [currentTicketIndex, setCurrentTicketIndex] = useState(0);
-  const sheetRef = useRef(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
 
   // Contact form
-  const [contactInfo, setContactInfo] = useState({
-    email: mockUser?.email || '',
-    name: mockUser?.name || '',
+  const [contactInfo, setContactInfo] = useState<ContactInfo>({
+    email: mockUser ? mockUser.email : '',
+    name: mockUser ? mockUser.name : '',
     phone: '',
     createAccount: true,
     password: ''
-  });
+});
 
   // Payment form
   const [paymentMethod, setPaymentMethod] = useState('apple-pay');
-  const [cardInfo, setCardInfo] = useState({
+  const [cardInfo, setCardInfo] = useState<CardInfo>({
     number: '',
     expiry: '',
     cvc: ''
@@ -69,7 +123,7 @@ const MobileCheckoutSheet = ({
   // Generate confetti
   useEffect(() => {
     if (showConfetti) {
-      const pieces = [];
+      const pieces: ConfettiPiece[] = [];
       const colors = ['#8b5cf6', '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#ef4444'];
       
       for (let i = 0; i < 150; i++) {
@@ -154,47 +208,46 @@ const MobileCheckoutSheet = ({
     }, 5000);
   };
 
-      const resetCheckoutFlow = () => {
-      // Reset success states
-      setShowSuccess(false);
-      setShowCheckmark(false);
-      setShowConfetti(false);
-      setIsCardFlipped(false);
-      setCardRotation(0);
-      setShowTicketFan(false);
-      setCurrentTicketIndex(0);
-      
-      // Reset to step 1
-      setCurrentStep(1);
-      setQuantity(1);
-      
-      // Reset legal consent
-      setAgreeTerms(false);
-      setAgreeRefund(false);
-      
-      // Reset contact info (keep email if user is logged in)
-      setContactInfo({
-        email: mockUser?.email || '',
-        name: mockUser?.name || '',
-        phone: '',
-        createAccount: true,
-        password: ''
-      });
-      
-      // Reset payment info
-      setCardInfo({
-        number: '',
-        expiry: '',
-        cvc: ''
-      });
-      setPaymentMethod('apple-pay');
-    };
+  const resetCheckoutFlow = () => {
+    // Reset success states
+    setShowSuccess(false);
+    setShowCheckmark(false);
+    setShowConfetti(false);
+    setIsCardFlipped(false);
+    setCardRotation(0);
+    setShowTicketFan(false);
+    setCurrentTicketIndex(0);
+    
+    // Reset to step 1
+    setCurrentStep(1);
+    setQuantity(1);
+    
+    // Reset legal consent
+    setAgreeTerms(false);
+    setAgreeRefund(false);
+    
+    // Reset contact info (keep email if user is logged in)
+    setContactInfo({
+      email: mockUser ? mockUser.email : '',
+      name: mockUser ? mockUser.name : '',
+      phone: '',
+      createAccount: true,
+      password: ''
+    });
+    
+    // Reset payment info
+    setCardInfo({
+      number: '',
+      expiry: '',
+      cvc: ''
+    });
+    setPaymentMethod('apple-pay');
+  };
 
-    // ADD THIS NEW FUNCTION HERE ⬇️
-    const handleClose = () => {
-      resetCheckoutFlow();
-      onClose();
-    };
+  const handleClose = () => {
+    resetCheckoutFlow();
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -382,8 +435,8 @@ const MobileCheckoutSheet = ({
               </p>
             </div>
             <button onClick={handleClose} className="p-2 hover:bg-gray-800 rounded-full transition">
-            <X className={`w-6 h-6 ${text}`} />
-          </button>
+              <X className={`w-6 h-6 ${text}`} />
+            </button>
           </div>
 
           <div className="mb-8">
@@ -586,111 +639,111 @@ const MobileCheckoutSheet = ({
           )}
 
           {currentStep === totalSteps && (
-          <div className="space-y-4">
-            <h3 className={`${text} font-semibold mb-4`}>Review Your Order</h3>
+            <div className="space-y-4">
+              <h3 className={`${text} font-semibold mb-4`}>Review Your Order</h3>
 
-            <div className={`p-4 ${bgSecondary} rounded-xl space-y-3`}>
-              <div>
-                <div className={`${textSecondary} text-sm mb-1`}>Event</div>
-                <div className={`${text} font-semibold`}>{event.title}</div>
-              </div>
-              <div>
-                <div className={`${textSecondary} text-sm mb-1`}>Tickets</div>
-                <div className={`${text}`}>{quantity}× {selectedTier.name}</div>
-              </div>
-              <div>
-                <div className={`${textSecondary} text-sm mb-1`}>Contact</div>
-                <div className={`${text}`}>{mockUser?.email || contactInfo.email}</div>
-              </div>
-            </div>
-
-            <div className={`p-4 ${bgSecondary} rounded-xl`}>
-              <div className="flex justify-between mb-2">
-                <span className={textSecondary}>Subtotal</span>
-                <span className={text}>£{(selectedTier.price * quantity).toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span className={textSecondary}>Service Fee</span>
-                <span className={text}>£{(selectedTier.serviceFee * quantity).toFixed(2)}</span>
-              </div>
-              <div className={`flex justify-between pt-2 border-t ${border} font-bold text-lg`}>
-                <span className={text}>Total</span>
-                <span className={text}>£{totalPrice.toFixed(2)}</span>
-              </div>
-            </div>
-
-            {/* NEW: Legal Consent Checkboxes */}
-            <div className="space-y-3">
-              <div className={`p-4 ${bgSecondary} rounded-xl`}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={agreeTerms}
-                    onChange={(e) => setAgreeTerms(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
-                  />
-                  <div>
-                    <span className={`${text} text-sm`}>
-                      I agree to the{' '}
-                      <a 
-                        href="/terms" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-purple-400 hover:text-purple-300 underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Terms of Service
-                      </a>
-                      {' '}and{' '}
-                      <a 
-                        href="/privacy" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-purple-400 hover:text-purple-300 underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Privacy Policy
-                      </a>
-                    </span>
-                  </div>
-                </label>
+              <div className={`p-4 ${bgSecondary} rounded-xl space-y-3`}>
+                <div>
+                  <div className={`${textSecondary} text-sm mb-1`}>Event</div>
+                  <div className={`${text} font-semibold`}>{event.title}</div>
+                </div>
+                <div>
+                  <div className={`${textSecondary} text-sm mb-1`}>Tickets</div>
+                  <div className={`${text}`}>{quantity}× {selectedTier.name}</div>
+                </div>
+                <div>
+                  <div className={`${textSecondary} text-sm mb-1`}>Contact</div>
+                  <div className={`${text}`}>{mockUser ? mockUser.email : contactInfo.email}</div>
+                </div>
               </div>
 
               <div className={`p-4 ${bgSecondary} rounded-xl`}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={agreeRefund}
-                    onChange={(e) => setAgreeRefund(e.target.checked)}
-                    className="mt-1 w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
-                  />
-                  <div>
-                    <span className={`${text} text-sm`}>
-                      I have read and understand the{' '}
-                      <a 
-                        href="/refund-policy" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-purple-400 hover:text-purple-300 underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        Refund Policy
-                      </a>
-                      {' '}for this event
-                    </span>
-                  </div>
-                </label>
+                <div className="flex justify-between mb-2">
+                  <span className={textSecondary}>Subtotal</span>
+                  <span className={text}>£{(selectedTier.price * quantity).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between mb-2">
+                  <span className={textSecondary}>Service Fee</span>
+                  <span className={text}>£{(selectedTier.serviceFee * quantity).toFixed(2)}</span>
+                </div>
+                <div className={`flex justify-between pt-2 border-t ${border} font-bold text-lg`}>
+                  <span className={text}>Total</span>
+                  <span className={text}>£{totalPrice.toFixed(2)}</span>
+                </div>
               </div>
-            </div>
 
-            <div className={`flex items-start gap-2 p-4 bg-green-500/10 border border-green-500/20 rounded-xl`}>
-              <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <div className="text-sm text-green-400">
-                No hidden fees. Full refund if event is cancelled.
+              {/* Legal Consent Checkboxes */}
+              <div className="space-y-3">
+                <div className={`p-4 ${bgSecondary} rounded-xl`}>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div>
+                      <span className={`${text} text-sm`}>
+                        I agree to the{' '}
+                        <a 
+                          href="/terms" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300 underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Terms of Service
+                        </a>
+                        {' '}and{' '}
+                        <a 
+                          href="/privacy" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300 underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Privacy Policy
+                        </a>
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className={`p-4 ${bgSecondary} rounded-xl`}>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={agreeRefund}
+                      onChange={(e) => setAgreeRefund(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
+                    />
+                    <div>
+                      <span className={`${text} text-sm`}>
+                        I have read and understand the{' '}
+                        <a 
+                          href="/refund-policy" 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-purple-400 hover:text-purple-300 underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Refund Policy
+                        </a>
+                        {' '}for this event
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className={`flex items-start gap-2 p-4 bg-green-500/10 border border-green-500/20 rounded-xl`}>
+                <Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-green-400">
+                  No hidden fees. Full refund if event is cancelled.
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
           <div className="flex gap-3 mt-8">
             {currentStep > 1 && (
@@ -714,7 +767,7 @@ const MobileCheckoutSheet = ({
             </button>
           </div>
         </div>
-       </div>
+      </div>
 
       <style jsx>{`
         @keyframes draw-circle {

@@ -11,6 +11,7 @@ import { ResaleMarketplaceModule } from './resale-marketplace/resale-marketplace
 import { AnalyticsModule } from './analytics/analytics.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { GuestListModule } from './guest-list/guest-list.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     PrismaModule,
     AuthModule,
     EventsModule,
+    GuestListModule,
     TicketTiersModule,
     OrdersModule,
     TicketTransfersModule,
@@ -35,4 +37,4 @@ import { RolesGuard } from './auth/guards/roles.guard';
     },
   ],
 })
-export class AppModule {}
+export class AppModule { }

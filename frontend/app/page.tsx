@@ -6,18 +6,36 @@ import { useTheme } from './context/ThemeContext';
 import Link from 'next/link';
 import { Calendar, MapPin, Check, Shield, ArrowRight, Menu, X } from 'lucide-react';
 
+// Type definition for Event
+interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  location: string;
+  eventDate: string;
+  category?: string;
+  imageUrl?: string;
+  ticketPrice: number;
+  serviceFee?: number;
+  capacity?: number;
+  ticketsSold?: number;
+  organizer?: {
+    name: string;
+  };
+}
+
 export default function HomePage() {
   const { isDarkMode, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [featuredEvents, setFeaturedEvents] = useState([]);
+  const [featuredEvents, setFeaturedEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     setMounted(true);
     // Fetch first 4 events for featured section
     fetch('http://localhost:3001/api/events')
       .then(res => res.json())
-      .then(data => setFeaturedEvents(data.slice(0, 4)))
+      .then((data: Event[]) => setFeaturedEvents(data.slice(0, 4)))
       .catch(err => console.error('Error fetching events:', err));
   }, []);
 
@@ -185,7 +203,7 @@ export default function HomePage() {
             <div className="hidden lg:grid grid-cols-2 gap-4">
               {featuredEvents.slice(0, 4).map((event, idx) => (
                 <div
-                  key={idx}
+                  key={event.id}
                   className="relative rounded-2xl overflow-hidden h-48 group cursor-pointer"
                   style={{ 
                     transform: idx === 0 ? 'translateY(-10px)' : idx === 3 ? 'translateY(10px)' : 'none'

@@ -92,16 +92,25 @@ export default function DangerZonePage() {
     alert('Your data export will be emailed to you within 24 hours.');
   };
 
-  const ConfirmationModal = ({ 
-    show, 
-    onClose, 
-    onConfirm, 
-    title, 
-    description, 
-    confirmWord,
-    icon: Icon,
-    color = 'red'
-  }) => {
+  interface ConfirmationModalProps {
+  show: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  actionText: string;
+  danger?: boolean;
+}
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ 
+  show, 
+  onClose, 
+  onConfirm, 
+  title, 
+  description,
+  actionText,
+  danger
+}) => {
     if (!show) return null;
 
     return (

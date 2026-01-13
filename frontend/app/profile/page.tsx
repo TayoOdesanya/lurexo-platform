@@ -33,11 +33,65 @@ import {
   Trash2,
   Download,
   ExternalLink,
-  AlertTriangle
+  AlertTriangle,
+  LucideIcon
 } from 'lucide-react';
 
+// Type definitions
+interface UserPreferences {
+  notifications: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  categories: string[];
+  theme: string;
+  language: string;
+}
+
+interface UserStats {
+  ticketsPurchased: number;
+  eventsAttended: number;
+  upcomingEvents: number;
+  favoriteVenues: number;
+}
+
+interface UserWallet {
+  balance: number;
+  currency: string;
+}
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  avatar: string;
+  memberSince: string;
+  verified: boolean;
+  preferences: UserPreferences;
+  stats: UserStats;
+  wallet: UserWallet;
+}
+
+interface MenuItem {
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  href?: string;
+  action?: () => void;
+  danger?: boolean;
+}
+
+interface MenuSection {
+  id: string;
+  title: string;
+  items: MenuItem[];
+}
+
 // Mock user data
-const MOCK_USER = {
+const MOCK_USER: UserData = {
   id: 'user-123',
   name: 'Alex Johnson',
   email: 'alex.johnson@email.com',
@@ -69,10 +123,10 @@ const MOCK_USER = {
 };
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(MOCK_USER);
-  const [activeSection, setActiveSection] = useState(null);
+  const [user, setUser] = useState<UserData>(MOCK_USER);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', {
       month: 'long',
@@ -86,7 +140,7 @@ export default function ProfilePage() {
   };
 
   // Menu sections
-  const menuSections = [
+  const menuSections: MenuSection[] = [
     {
       id: 'account',
       title: 'Account',
@@ -213,9 +267,9 @@ export default function ProfilePage() {
   ];
 
   return (
-  <div className="min-h-screen bg-black pb-20 lg:pb-6">
+    <div className="min-h-screen bg-black pb-20 lg:pb-6">
       {/* MOBILE ONLY: Header with gradient and user card */}
-    <div className="lg:hidden bg-gradient-to-br from-purple-600 to-blue-600 p-6 pb-8">
+      <div className="lg:hidden bg-gradient-to-br from-purple-600 to-blue-600 p-6 pb-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-white text-2xl font-bold">Profile</h1>
           <button 
@@ -285,9 +339,9 @@ export default function ProfilePage() {
       </div>
 
       {/* MOBILE ONLY: Wallet Card */}
-        <div className="lg:hidden px-4 -mt-4 mb-4">
+      <div className="lg:hidden px-4 -mt-4 mb-4">
         <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl p-4 shadow-lg">
-                <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                 <CreditCard className="w-5 h-5 text-white" />
@@ -313,12 +367,12 @@ export default function ProfilePage() {
       </div>
 
       {/* DESKTOP: Page Header */}
-        <div className="hidden lg:block bg-gray-900 border-b border-gray-800">
+      <div className="hidden lg:block bg-gray-900 border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 py-8">
-            <h1 className="text-white text-3xl font-bold mb-2">My Profile</h1>
-            <p className="text-gray-400">Manage your account settings and preferences</p>
+          <h1 className="text-white text-3xl font-bold mb-2">My Profile</h1>
+          <p className="text-gray-400">Manage your account settings and preferences</p>
         </div>
-        </div>
+      </div>
 
       {/* Menu Sections */}
       <div className="px-4 lg:px-6 lg:max-w-7xl lg:mx-auto space-y-6 mt-6">
@@ -333,12 +387,12 @@ export default function ProfilePage() {
                 const isLast = index === section.items.length - 1;
 
                 return (
-                        <div 
-                            key={item.label} 
-                            className={`lg:bg-gray-900 ${
-                            isLast && section.items.length % 2 !== 0 ? 'lg:col-span-2' : ''
-                            }`}
-                        >
+                  <div 
+                    key={item.label} 
+                    className={`lg:bg-gray-900 ${
+                      isLast && section.items.length % 2 !== 0 ? 'lg:col-span-2' : ''
+                    }`}
+                  >
                     {item.href ? (
                       <Link href={item.href}>
                         <div className={`flex items-center gap-3 p-4 hover:bg-gray-800 transition-colors cursor-pointer ${
@@ -414,8 +468,8 @@ export default function ProfilePage() {
         </div>
       </div>
 
-     {/* MOBILE ONLY: Bottom Navigation */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-50">
+      {/* MOBILE ONLY: Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-50">
         <div className="flex items-center justify-around py-3">
           <Link href="/mobile">
             <button className="flex flex-col items-center gap-1 px-4 py-2">
@@ -446,9 +500,10 @@ export default function ProfilePage() {
           </Link>
         </div>
       </div>
-            <div className="hidden lg:block">
-              <Footer />
-            </div>
+
+      <div className="hidden lg:block">
+        <Footer />
+      </div>
     </div>
   );
 }

@@ -419,14 +419,14 @@ export default function MarketingDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <button
-          onClick={() => setShowCampaignModal(true)}
-          className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 p-6 rounded-xl transition-all group text-left"
+        <Link
+          href={`/organizer/marketing/campaigns/new?accountId=${activeAccount.id}`}
+          className="bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 p-6 rounded-xl transition-all group block"
         >
           <Calendar className="w-8 h-8 text-white mb-3 group-hover:scale-110 transition-transform" />
           <h3 className="text-white font-bold text-lg mb-1">New Campaign</h3>
           <p className="text-blue-100 text-sm">Create email campaign</p>
-        </button>
+        </Link>
 
         <button
           onClick={() => setShowTemplateModal(true)}
@@ -560,7 +560,12 @@ export default function MarketingDashboard() {
                   <tr key={campaign.id} className="hover:bg-gray-800/30 transition-colors">
                     <td className="px-6 py-4">
                       <div>
-                        <p className="text-white font-medium">{campaign.name}</p>
+                        <Link 
+                          href={`/organizer/marketing/campaigns/${campaign.id}`}
+                          className="text-white font-medium hover:text-purple-400 transition-colors"
+                        >
+                          {campaign.name}
+                        </Link>
                         <p className="text-gray-400 text-sm">{campaign.subject}</p>
                       </div>
                     </td>

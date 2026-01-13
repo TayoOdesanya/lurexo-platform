@@ -9,6 +9,7 @@ import {
   CheckCircle,
   AlertCircle,
   Download,
+  X,
   CreditCard,
   Building,
   Calendar,
@@ -48,7 +49,7 @@ export default function PayoutsPage() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
 
   // Mock data
-  const availableBalance = 24780;
+  const availableBalance: number = 24780;
   const pendingPayouts = 8940;
   const totalPaidOut = 287450;
   const nextPayoutDate = 'Tomorrow, 9:00 AM';

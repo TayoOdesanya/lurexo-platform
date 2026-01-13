@@ -91,12 +91,19 @@ export default function EventDetailPage() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
 
+<<<<<<< Updated upstream
   // Hydration guard
   useEffect(() => setMounted(true), []);
+=======
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+>>>>>>> Stashed changes
 
   useEffect(() => {
     if (!id) return;
 
+<<<<<<< Updated upstream
     setLoading(true);
     setError(null);
 
@@ -121,6 +128,35 @@ export default function EventDetailPage() {
    * The previous version returned early when !mounted, which caused useMemo to be skipped,
    * changing hook order between renders. So we compute memos BEFORE any conditional return.
    */
+=======
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleShare = (platform: string) => {
+    const url = window.location.href;
+    const text = `Check out ${mockEvent.title} on Lurexo!`;
+
+    switch (platform) {
+      case 'copy':
+        navigator.clipboard.writeText(url);
+        setShowShareSheet(false);
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        break;
+    }
+>>>>>>> Stashed changes
 
   const heroSrc = useMemo(() => {
     const src =
@@ -169,6 +205,7 @@ export default function EventDetailPage() {
   }
 
   return (
+<<<<<<< Updated upstream
     <div className={`min-h-screen ${bgPrimary}`}>
       {/* Top Nav */}
       <header className={`relative overflow-hidden ${bgGradient}`}>
@@ -179,6 +216,17 @@ export default function EventDetailPage() {
             <button
               onClick={() => router.back()}
               className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 transition-all"
+=======
+    <div className={`min-h-screen ${bg} pb-24 lg:pb-0`}>
+      {/* Navigation */}
+      <nav className={`${bgSecondary} border-b ${border} sticky top-0 z-40 backdrop-blur-lg bg-opacity-95`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* MOBILE: Back Button */}
+            <button
+              onClick={() => router.back()}
+              className={`lg:hidden flex items-center gap-2 ${textSecondary} hover:${text} transition-colors`}
+>>>>>>> Stashed changes
             >
               ← Back
             </button>
@@ -187,8 +235,47 @@ export default function EventDetailPage() {
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">L</span>
               </div>
+<<<<<<< Updated upstream
               <span className="text-white font-bold text-2xl tracking-tight">Lurexo</span>
             </Link>
+=======
+              <span className={`${text} font-bold text-xl hidden sm:inline`}>Lurexo</span>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setIsLiked(!isLiked)}
+                className={`hidden sm:flex items-center space-x-2 px-4 py-2 rounded-full transition-all ${isLiked ? 'bg-red-500/10 text-red-500' : `${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${textSecondary}`
+                  }`}
+              >
+                <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
+                <span>{likeCount}</span>
+              </button>
+
+              <button
+                onClick={() => setShowShareSheet(true)}
+                className={`hidden sm:block p-2 rounded-full ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} transition-all`}
+              >
+                <Share2 className={`w-5 h-5 ${text}`} />
+              </button>
+
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className={`p-2.5 rounded-full ${isDarkMode ? 'bg-white/10 border border-white/20' : 'bg-gray-100 border border-gray-200'} backdrop-blur-sm`}
+              >
+                {isDarkMode ? (
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
+              </button>
+            </div>
+>>>>>>> Stashed changes
           </div>
 
           <div className="flex items-center space-x-4">
@@ -224,6 +311,7 @@ export default function EventDetailPage() {
           </div>
         </nav>
 
+<<<<<<< Updated upstream
         {/* Header content */}
         <div className="relative z-10 max-w-7xl mx-auto px-6 pb-10">
           {loading ? (
@@ -261,9 +349,54 @@ export default function EventDetailPage() {
                       <span className="px-3 py-1 bg-red-500/90 text-white text-xs font-semibold rounded-full animate-pulse">
                         🔥 Selling Fast
                       </span>
+=======
+        {/* Mobile Like & Share */}
+        <div className="sm:hidden absolute top-4 right-4 flex flex-col space-y-2">
+          <button
+            onClick={() => setIsLiked(!isLiked)}
+            className={`w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center ${isLiked ? 'bg-red-500/20 border border-red-500/50' : 'bg-black/40 border border-white/20'
+              }`}
+          >
+            <Heart className={`w-6 h-6 ${isLiked ? 'text-red-500 fill-current' : 'text-white'}`} />
+          </button>
+          <button
+            onClick={() => setShowShareSheet(true)}
+            className="w-12 h-12 rounded-full bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center"
+          >
+            <Share2 className="w-6 h-6 text-white" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 lg:py-8">
+        <div className="lg:grid lg:grid-cols-3 lg:gap-12">
+          {/* Left Column */}
+          <div className="lg:col-span-2">
+            <div className="max-w-[900px] space-y-6 lg:space-y-8">
+
+              {/* Compact Title Section */}
+              <div className="space-y-3">
+                <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-bold ${text} leading-tight`}>
+                  {mockEvent.title}
+                </h1>
+
+                {/* Organizer - Clickable Link */}
+                <Link href={`/organizers/${mockEvent.organizer.username}`}>
+                  <div className="flex items-center gap-2 cursor-pointer hover:text-purple-400 transition-colors group">
+                    <span className={`${textSecondary} text-sm`}>by</span>
+                    <span className={`${text} text-sm font-semibold group-hover:text-purple-400 transition-colors`}>
+                      {mockEvent.organizer.name}
+                    </span>
+                    {mockEvent.organizer.verified && (
+                      <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+>>>>>>> Stashed changes
                     )}
                   </div>
 
+<<<<<<< Updated upstream
                   <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight mb-4">{event.title}</h1>
 
                   {/* Organizer */}
@@ -311,6 +444,274 @@ export default function EventDetailPage() {
                     <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
                       <p className="text-gray-200 text-xs mb-1">Location</p>
                       <p className="text-white font-bold truncate">{event.location}</p>
+=======
+                {/* Quick Info Cards - 4 Cards: 2x2 Grid, Purple/Blue Colors */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                  {/* Date */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Date</div>
+                      <div className={`${text} font-bold text-base`}>{formatDate(mockEvent.eventDate)}</div>
+                    </div>
+                  </div>
+
+                  {/* Time */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Start Time</div>
+                      <div className={`${text} font-bold text-base`}>{formatTime(mockEvent.eventDate)}</div>
+                    </div>
+                  </div>
+
+                  {/* Venue */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Venue</div>
+                      <div className={`${text} font-bold text-base truncate`}>{mockEvent.venue.name}</div>
+                    </div>
+                  </div>
+
+                  {/* Age Restriction */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Age</div>
+                      <div className={`${text} font-bold text-base`}>18+</div>
+                    </div>
+                  </div>
+                </div>
+
+
+                {/* Trust Signals Bar - Desktop Only */}
+                <div className={`hidden lg:flex flex-wrap gap-4 p-4 ${isDarkMode ? 'bg-purple-900/20 border-purple-500/20' : 'bg-purple-50 border-purple-200'} rounded-xl border`}>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span className={textSecondary}>No hidden fees</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span className={textSecondary}>Free transfers</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span className={textSecondary}>Digital tickets in mobile wallet</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="w-4 h-4 text-green-500" />
+                    <span className={textSecondary}>24/7 support</span>
+                  </div>
+                </div>
+
+                {/* Refund Policy - Collapsible */}
+                <div className={`${bgSecondary} rounded-xl border ${border} overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('refund')}
+                    className="w-full p-4 flex items-center justify-between hover:bg-opacity-80 transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Info className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                      <h3 className={`${text} font-semibold text-left`}>Refund Policy</h3>
+                    </div>
+                    <ChevronDown className={`w-5 h-5 ${textSecondary} transition-transform ${expandedSections.refund ? 'rotate-180' : ''}`} />
+                  </button>
+                  {expandedSections.refund && (
+                    <div className={`px-4 pb-4 border-t ${border}`}>
+                      <p className={`text-sm ${textSecondary} mt-3 leading-relaxed`}>{mockEvent.refundPolicy}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <h2 className={`text-2xl font-bold ${text} mb-4`}>About This Event</h2>
+                  <p className={`${textSecondary} leading-relaxed mb-3`}>{mockEvent.description}</p>
+                  {expandedSections.description && (
+                    <p className={`${textSecondary} leading-relaxed mb-3`}>{mockEvent.longDescription}</p>
+                  )}
+                  <button
+                    onClick={() => toggleSection('description')}
+                    className="text-purple-400 hover:text-purple-300 text-sm font-semibold flex items-center gap-2"
+                  >
+                    {expandedSections.description ? 'Show less' : 'Read more'}
+                    {expandedSections.description ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {/* What to Expect */}
+                <div>
+                  <h2 className={`text-2xl font-bold ${text} mb-4`}>What to Expect</h2>
+                  <ul className="space-y-3">
+                    {mockEvent.highlights.map((highlight, idx) => (
+                      <li key={idx} className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-purple-500 flex-shrink-0 mt-0.5" />
+                        <span className={textSecondary}>{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Venue */}
+                <div className={`border ${border} rounded-xl overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('venue')}
+                    className={`w-full p-4 ${bgSecondary} flex items-center justify-between hover:opacity-80 transition`}
+                  >
+                    <h2 className={`text-xl font-bold ${text}`}>Venue Information</h2>
+                    {expandedSections.venue ? <ChevronUp className={`w-5 h-5 ${text}`} /> : <ChevronDown className={`w-5 h-5 ${text}`} />}
+                  </button>
+                  {expandedSections.venue && (
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <h3 className={`${text} font-semibold mb-2`}>{mockEvent.venue.name}</h3>
+                        <p className={`${textSecondary} text-sm`}>{mockEvent.venue.address}</p>
+                      </div>
+                      <div className={`w-full h-64 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} rounded-lg flex items-center justify-center`}>
+                        <MapPin className="w-12 h-12 text-gray-500" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Transport */}
+                <div className={`border ${border} rounded-xl overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('transport')}
+                    className={`w-full p-4 ${bgSecondary} flex items-center justify-between hover:opacity-80 transition`}
+                  >
+                    <h2 className={`text-xl font-bold ${text}`}>Getting There</h2>
+                    {expandedSections.transport ? <ChevronUp className={`w-5 h-5 ${text}`} /> : <ChevronDown className={`w-5 h-5 ${text}`} />}
+                  </button>
+                  {expandedSections.transport && (
+                    <div className="p-4 space-y-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Train className="w-5 h-5 text-purple-500" />
+                          <h3 className={`${text} font-semibold`}>Nearest Train Stations</h3>
+                        </div>
+                        <ul className="space-y-2 ml-7">
+                          {mockEvent.transport.trains.map((station, idx) => (
+                            <li key={idx} className={`${textSecondary} text-sm`}>{station}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Car className="w-5 h-5 text-purple-500" />
+                          <h3 className={`${text} font-semibold`}>Parking</h3>
+                        </div>
+                        <p className={`${textSecondary} text-sm ml-7`}>{mockEvent.transport.parking}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* FAQ */}
+                <div className={`border ${border} rounded-xl overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('faq')}
+                    className={`w-full p-4 ${bgSecondary} flex items-center justify-between hover:opacity-80 transition`}
+                  >
+                    <h2 className={`text-xl font-bold ${text}`}>FAQ</h2>
+                    {expandedSections.faq ? <ChevronUp className={`w-5 h-5 ${text}`} /> : <ChevronDown className={`w-5 h-5 ${text}`} />}
+                  </button>
+                  {expandedSections.faq && (
+                    <div className="p-4 space-y-4">
+                      {mockEvent.faqs.map((faq, idx) => (
+                        <div key={idx}>
+                          <h3 className={`${text} font-semibold mb-2`}>{faq.question}</h3>
+                          <p className={`${textSecondary} text-sm`}>{faq.answer}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Gallery */}
+                <div className={`border ${border} rounded-xl overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('gallery')}
+                    className={`w-full p-4 ${bgSecondary} flex items-center justify-between hover:opacity-80 transition`}
+                  >
+                    <h2 className={`text-xl font-bold ${text}`}>Photo Gallery</h2>
+                    {expandedSections.gallery ? <ChevronUp className={`w-5 h-5 ${text}`} /> : <ChevronDown className={`w-5 h-5 ${text}`} />}
+                  </button>
+                  {expandedSections.gallery && (
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                        {mockEvent.gallery.map((img, idx) => (
+                          <img key={idx} src={img} alt={`Gallery ${idx + 1}`} className="w-full aspect-video object-cover rounded-lg" />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Comments */}
+                <div className={`border ${border} rounded-xl overflow-hidden`}>
+                  <button
+                    onClick={() => toggleSection('comments')}
+                    className={`w-full p-4 ${bgSecondary} flex items-center justify-between hover:opacity-80 transition`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <h2 className={`text-xl font-bold ${text}`}>Comments</h2>
+                      <span className={`${textSecondary} text-sm`}>({mockEvent.comments.length})</span>
+                    </div>
+                    {expandedSections.comments ? <ChevronUp className={`w-5 h-5 ${text}`} /> : <ChevronDown className={`w-5 h-5 ${text}`} />}
+                  </button>
+                  {expandedSections.comments && (
+                    <div className="p-4 space-y-4">
+                      {mockEvent.comments.map((comment, idx) => (
+                        <div key={idx} className={`pb-4 border-b ${border} last:border-0`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                              <span className="text-white text-sm font-bold">{comment.user[0]}</span>
+                            </div>
+                            <div>
+                              <div className={`${text} font-semibold text-sm`}>{comment.user}</div>
+                              <div className={`${textSecondary} text-xs`}>{comment.time}</div>
+                            </div>
+                          </div>
+                          <p className={`${textSecondary} text-sm ml-10`}>{comment.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Similar Events - Desktop Only */}
+                <div className="hidden lg:block">
+                  <h2 className={`text-2xl font-bold ${text} mb-6`}>Similar Events</h2>
+                  <div className="overflow-x-auto">
+                    <div className="flex gap-4 pb-4">
+                      {similarEvents.map((event) => (
+                        <div key={event.id} className={`flex-shrink-0 w-64 ${bgSecondary} border ${border} rounded-xl overflow-hidden hover:scale-105 transition-transform cursor-pointer`}>
+                          <img src={event.imageUrl} alt={event.title} className="w-full h-40 object-cover" />
+                          <div className="p-4">
+                            <h3 className={`${text} font-bold mb-2 line-clamp-2`}>{event.title}</h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Calendar className={`w-4 h-4 ${textSecondary}`} />
+                              <span className={`${textSecondary} text-sm`}>{formatDate(event.date)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Clock className={`w-4 h-4 ${textSecondary}`} />
+                              <span className={`${textSecondary} text-sm`}>{formatTime(event.date)}</span>
+                            </div>
+                            <div className={`${text} font-bold text-lg`}>£{event.price.toFixed(2)}</div>
+                          </div>
+                        </div>
+                      ))}
+>>>>>>> Stashed changes
                     </div>
                   </div>
                 </div>
@@ -325,8 +726,17 @@ export default function EventDetailPage() {
                     <p className="text-gray-200 text-xs mb-6">inc. fees</p>
 
                     <button
+<<<<<<< Updated upstream
                       onClick={() => router.push(`/checkout?event=${encodeURIComponent(event.id)}`)}
                       className="w-full bg-white text-black px-6 py-3 rounded-full font-semibold hover:bg-gray-100 transition-all hover:scale-[1.01]"
+=======
+                      key={tier.id}
+                      onClick={() => setSelectedTier(tier)}
+                      className={`w-full p-4 rounded-xl border-2 text-left transition ${selectedTier.id === tier.id
+                          ? 'border-purple-500 bg-purple-900/20'
+                          : `border-gray-700 hover:border-gray-600`
+                        }`}
+>>>>>>> Stashed changes
                     >
                       Get tickets
                     </button>
@@ -468,7 +878,34 @@ export default function EventDetailPage() {
         )}
       </main>
 
+<<<<<<< Updated upstream
       <Footer />
+=======
+      {/* Mobile Checkout Sheet */}
+      <MobileCheckoutSheet
+        isOpen={showBottomSheet}
+        onClose={() => setShowBottomSheet(false)}
+        event={mockEvent}
+        ticketTiers={mockEvent.ticketTiers}
+        initialTier={selectedTier}
+        isDarkMode={isDarkMode}
+      />
+
+      <style jsx>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+          animation: slide-up 0.3s ease-out;
+        }
+      `}</style>
+
+      {/* Footer - Desktop Only */}
+      <div className="hidden lg:block">
+        <Footer />
+      </div>
+>>>>>>> Stashed changes
     </div>
   );
 }

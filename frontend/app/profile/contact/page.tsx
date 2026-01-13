@@ -52,16 +52,18 @@ export default function ContactUsPage() {
   const [attachments, setAttachments] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [errors, setErrors] = useState({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
     // Clear error for this field
     if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
+      const newErrors = { ...errors };
+      delete newErrors[field];
+      setErrors(newErrors);
     }
   };
 
@@ -71,7 +73,7 @@ export default function ContactUsPage() {
   };
 
   const validateForm = () => {
-    const newErrors = {};
+    const newErrors: Record<string, string> = {};
 
     if (!formData.inquiryType) {
       newErrors.inquiryType = 'Please select an inquiry type';
@@ -89,7 +91,7 @@ export default function ContactUsPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -105,7 +107,7 @@ export default function ContactUsPage() {
     setSubmitted(true);
   };
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = (priority: 'low' | 'medium' | 'high' | 'urgent') => {
     const colors = {
       low: 'bg-green-500/20 text-green-400 border-green-500/30',
       medium: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
@@ -352,7 +354,7 @@ export default function ContactUsPage() {
                     onClick={() => handleInputChange('priority', priority.id)}
                     className={`w-full p-3 rounded-lg flex items-center justify-between transition-all border-2 ${
                       isSelected
-                        ? getPriorityColor(priority.id)
+                        ? getPriorityColor(priority.id as 'low' | 'medium' | 'high' | 'urgent')
                         : 'bg-gray-800 border-transparent hover:border-gray-700'
                     }`}
                   >

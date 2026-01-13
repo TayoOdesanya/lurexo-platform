@@ -159,7 +159,7 @@ export default function AppearancePage() {
               return (
                 <button
                   key={theme.id}
-                  onClick={() => setSelectedTheme(theme.id)}
+                  onClick={() => setSelectedTheme(theme.id as 'auto' | 'light' | 'dark')}
                   className={`p-4 rounded-xl border-2 transition-all ${
                     isSelected
                       ? 'border-purple-500 bg-purple-500/10'

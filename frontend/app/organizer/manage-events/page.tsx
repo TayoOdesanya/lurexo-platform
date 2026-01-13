@@ -21,8 +21,13 @@ import {
   Pause,
   ArrowUpDown,
   X,
+<<<<<<< Updated upstream
   BarChart3,
   Share2,
+=======
+  Settings,
+  UserPlus
+>>>>>>> Stashed changes
 } from 'lucide-react';
 import { apiRequestAuth } from '../../../lib/api';
 
@@ -164,6 +169,7 @@ export default function ManageEventsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
 
+<<<<<<< Updated upstream
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -176,6 +182,100 @@ export default function ManageEventsPage() {
     if (!token) {
       router.push('/organizer/login');
       return;
+=======
+  // Mock events data
+  const events = [
+    {
+      id: 1,
+      name: 'Summer Music Festival 2025',
+      date: '2025-06-15',
+      time: '18:00',
+      venue: 'Hyde Park, London',
+      status: 'on-sale',
+      ticketsSold: 847,
+      totalTickets: 1000,
+      revenue: 42350,
+      views: 12453,
+      image: '/event-placeholder.jpg',
+      category: 'Music',
+      lastUpdated: '2 hours ago',
+      enableGuestList: true
+    },
+    {
+      id: 2,
+      name: 'Jazz Night Live',
+      date: '2025-07-22',
+      time: '20:00',
+      venue: 'Ronnie Scott\'s, London',
+      status: 'on-sale',
+      ticketsSold: 124,
+      totalTickets: 200,
+      revenue: 6200,
+      views: 3241,
+      image: '/event-placeholder.jpg',
+      category: 'Music',
+      lastUpdated: '1 day ago'
+    },
+    {
+      id: 3,
+      name: 'Comedy Special - Sarah Johnson',
+      date: '2025-08-10',
+      time: '19:30',
+      venue: 'The Comedy Store, London',
+      status: 'draft',
+      ticketsSold: 0,
+      totalTickets: 150,
+      revenue: 0,
+      views: 0,
+      image: '/event-placeholder.jpg',
+      category: 'Comedy',
+      lastUpdated: '3 days ago'
+    },
+    {
+      id: 4,
+      name: 'Tech Conference 2025',
+      date: '2025-05-20',
+      time: '09:00',
+      venue: 'ExCeL London',
+      status: 'sold-out',
+      ticketsSold: 500,
+      totalTickets: 500,
+      revenue: 45000,
+      views: 28934,
+      image: '/event-placeholder.jpg',
+      category: 'Conference',
+      lastUpdated: '1 week ago'
+    },
+    {
+      id: 5,
+      name: 'Food & Wine Festival',
+      date: '2025-09-05',
+      time: '12:00',
+      venue: 'Southbank Centre, London',
+      status: 'paused',
+      ticketsSold: 234,
+      totalTickets: 800,
+      revenue: 11700,
+      views: 5643,
+      image: '/event-placeholder.jpg',
+      category: 'Food & Drink',
+      lastUpdated: '2 days ago'
+    },
+    {
+      id: 6,
+      name: 'Art Exhibition Opening',
+      date: '2025-04-15',
+      time: '18:00',
+      venue: 'Tate Modern, London',
+      status: 'ended',
+      ticketsSold: 320,
+      totalTickets: 350,
+      revenue: 9600,
+      views: 7234,
+      image: '/event-placeholder.jpg',
+      category: 'Arts',
+      lastUpdated: '2 weeks ago'
+>>>>>>> Stashed changes
     }
     setAccessToken(token);
   }, [router]);
@@ -549,7 +649,18 @@ export default function ManageEventsPage() {
                         Analytics
                       </button>
                     </Link>
+<<<<<<< Updated upstream
 
+=======
+                    {event.enableGuestList && (
+                      <Link href={`/organizer/manage-events/${event.id}/guest-list`}>
+                        <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                          <UserPlus className="w-4 h-4" />
+                          Guest List
+                        </button>
+                      </Link>
+                    )}
+>>>>>>> Stashed changes
                     <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                       <Share2 className="w-4 h-4" />
                       Share

@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export default function TermsOfService() {
     const router = useRouter();
-  const [expandedSection, setExpandedSection] = useState<string | null>('acceptance');
+    const [expandedSection, setExpandedSection] = useState<string | null>('acceptance');
 
   const toggleSection = (section: string) => {
     setExpandedSection(expandedSection === section ? null : section);

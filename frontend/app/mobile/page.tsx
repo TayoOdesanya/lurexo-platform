@@ -2,10 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Calendar, MapPin, Clock, TrendingUp, Sparkles, Moon, Smile, Palette, Coffee, Bookmark, ChevronRight, ArrowUp, Home, Ticket, User, Search, Filter } from 'lucide-react';
+import { Calendar, MapPin, Clock, TrendingUp, Sparkles, Moon, Smile, Palette, Coffee, Bookmark, ChevronRight, ArrowUp, Home, Ticket, User, Search, Filter, LucideIcon } from 'lucide-react';
+
+// Type definitions
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  eventDate: string;
+  category: string;
+  imageUrl: string;
+  ticketPrice: number;
+  serviceFee: number;
+  capacity: number;
+  ticketsSold: number;
+  organizer: {
+    name: string;
+  };
+}
+
+interface Category {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+}
 
 // Mock data for demonstration
-const MOCK_EVENTS = [
+const MOCK_EVENTS: Event[] = [
   {
     id: '1',
     title: 'Summer Music Festival 2025',
@@ -265,13 +289,13 @@ export default function MobileEventsPage() {
   
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [mounted, setMounted] = useState(false);
-  const [events, setEvents] = useState([]);
+  const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [bookmarkedEvents, setBookmarkedEvents] = useState(new Set());
+  const [bookmarkedEvents, setBookmarkedEvents] = useState<Set<string>>(new Set());
   const [hapticEnabled, setHapticEnabled] = useState(true);
-  const scrollContainerRef = useRef(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -318,7 +342,7 @@ export default function MobileEventsPage() {
     );
   }
 
-  const categories = [
+  const categories: Category[] = [
     { id: 'tonight', label: 'Tonight', icon: Clock },
     { id: 'week', label: 'This Week', icon: Calendar },
     { id: 'new', label: 'New Shows', icon: Sparkles },
@@ -337,7 +361,7 @@ export default function MobileEventsPage() {
   };
 
   // Bookmark handler
-  const toggleBookmark = (eventId, e) => {
+  const toggleBookmark = (eventId: string, e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -352,7 +376,7 @@ export default function MobileEventsPage() {
   };
 
   // Filter events by category (mock logic - enhance based on real data)
-  const filterEventsByCategory = (category) => {
+  const filterEventsByCategory = (category: string) => {
     // This is simplified - in production, filter by actual event properties
     return events;
   };
@@ -365,19 +389,19 @@ export default function MobileEventsPage() {
     events[0] || null, 
     events[1] || null, 
     events[15] || null
-  ].filter(Boolean);
+  ].filter((event): event is Event => event !== null);
 
   // Theme classes
-    const bg = 'bg-black';
-    const bgCard = 'bg-gray-900';
-    const bgSecondary = 'bg-gray-800';
-    const text = 'text-white';
-    const textSecondary = 'text-gray-400';
-    const textTertiary = 'text-gray-500';
-    const border = 'border-gray-800';
+  const bg = 'bg-black';
+  const bgCard = 'bg-gray-900';
+  const bgSecondary = 'bg-gray-800';
+  const text = 'text-white';
+  const textSecondary = 'text-gray-400';
+  const textTertiary = 'text-gray-500';
+  const border = 'border-gray-800';
 
   // Format date
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', { 
       weekday: 'short', 
@@ -387,7 +411,7 @@ export default function MobileEventsPage() {
   };
 
   // Skeleton loader component
-  const SkeletonCard = ({ type = 'regular' }) => {
+  const SkeletonCard = ({ type = 'regular' }: { type?: 'regular' | 'compact' }) => {
     if (type === 'compact') {
       return (
         <div className={`${bgCard} border ${border} rounded-xl p-3 flex gap-3 animate-pulse`}>
@@ -414,9 +438,7 @@ export default function MobileEventsPage() {
   };
 
   // Regular Event Card Component
-  const RegularEventCard = ({ event }) => {
-    if (!event) return <SkeletonCard />;
-
+  const RegularEventCard = ({ event }: { event: Event }) => {
     return (
       <Link href={`/events/${event.id}`}>
         <div className={`${bgCard} border ${border} rounded-2xl overflow-hidden hover:border-purple-500/50 transition-all duration-300 hover:scale-[1.02] mb-6`}>
@@ -480,9 +502,7 @@ export default function MobileEventsPage() {
   };
 
   // Compact Event Card Component
-  const CompactEventCard = ({ event, isLast = false }) => {
-    if (!event) return <SkeletonCard type="compact" />;
-
+  const CompactEventCard = ({ event, isLast = false }: { event: Event; isLast?: boolean }) => {
     const ticketsLeft = event.capacity - event.ticketsSold;
     const showUrgency = ticketsLeft < 50;
 
@@ -547,7 +567,7 @@ export default function MobileEventsPage() {
   };
 
   // Empty State Component
-  const EmptyState = ({ icon: Icon, title, description }) => (
+  const EmptyState = ({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) => (
     <div className={`${bgCard} border ${border} rounded-xl p-8 text-center`}>
       <Icon className={`w-12 h-12 ${textTertiary} mx-auto mb-3`} />
       <h3 className={`${text} font-semibold mb-2`}>{title}</h3>

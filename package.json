@@ -1,5 +1,9 @@
 {
   "dependencies": {
+    "@tanstack/react-query": "^5.90.16",
+    "html5-qrcode": "^2.3.8",
+    "idb": "^8.0.3",
+    "react-hot-toast": "^2.6.0",
     "recharts": "^3.5.0"
   }
 }

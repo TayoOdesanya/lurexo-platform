@@ -205,8 +205,8 @@ export default function EventPreviewPage() {
   const eventUi = useMemo(() => (eventRaw ? toUiEvent(eventRaw) : null), [eventRaw]);
 
   const [expandedSections, setExpandedSections] = useState({
-    description: true,
-    venue: true,
+    description: false,
+    venue: false,
     transport: false,
     faq: false,
     refund: false,
@@ -216,6 +216,7 @@ export default function EventPreviewPage() {
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     if (!id) return;
 
@@ -254,6 +255,11 @@ export default function EventPreviewPage() {
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
+=======
+  const toggleSection = (section: keyof typeof expandedSections) => {
+  setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+};
+>>>>>>> Stashed changes
 
   const ticketsSold = useMemo(() => {
     if (!eventRaw) return 0;

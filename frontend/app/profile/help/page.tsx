@@ -20,11 +20,39 @@ import {
   ExternalLink,
   Phone,
   Mail,
-  Clock
+  Clock,
+  LucideIcon
 } from 'lucide-react';
 
+// Type definitions
+type ColorType = 'purple' | 'green' | 'blue' | 'orange';
+
+interface FAQCategory {
+  id: string;
+  name: string;
+  icon: LucideIcon;
+  color: ColorType;
+  count: number;
+}
+
+interface FAQ {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+}
+
+interface QuickLink {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  href: string;
+  color: ColorType;
+  external?: boolean;
+}
+
 // FAQ Categories
-const FAQ_CATEGORIES = [
+const FAQ_CATEGORIES: FAQCategory[] = [
   {
     id: 'tickets',
     name: 'Tickets & Orders',
@@ -56,7 +84,7 @@ const FAQ_CATEGORIES = [
 ];
 
 // Popular FAQs
-const POPULAR_FAQS = [
+const POPULAR_FAQS: FAQ[] = [
   {
     id: 'faq-1',
     category: 'tickets',
@@ -108,7 +136,7 @@ const POPULAR_FAQS = [
 ];
 
 // Quick Links
-const QUICK_LINKS = [
+const QUICK_LINKS: QuickLink[] = [
   {
     title: 'Contact Support',
     description: 'Get help from our team',
@@ -137,7 +165,7 @@ const QUICK_LINKS = [
 export default function HelpCenterPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedFaq, setExpandedFaq] = useState(null);
+  const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   const filteredFaqs = POPULAR_FAQS.filter(faq => {
@@ -150,69 +178,69 @@ export default function HelpCenterPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const getColorClass = (color, type = 'bg') => {
-    const colors = {
-      purple: type === 'bg' ? 'bg-purple-500/20' : 'text-purple-400',
-      green: type === 'bg' ? 'bg-green-500/20' : 'text-green-400',
-      blue: type === 'bg' ? 'bg-blue-500/20' : 'text-blue-400',
-      orange: type === 'bg' ? 'bg-orange-500/20' : 'text-orange-400'
+  const getColorClass = (color: ColorType, type: 'bg' | 'text' = 'bg'): string => {
+    const colors: Record<ColorType, Record<'bg' | 'text', string>> = {
+      purple: { bg: 'bg-purple-500/20', text: 'text-purple-400' },
+      green: { bg: 'bg-green-500/20', text: 'text-green-400' },
+      blue: { bg: 'bg-blue-500/20', text: 'text-blue-400' },
+      orange: { bg: 'bg-orange-500/20', text: 'text-orange-400' }
     };
-    return colors[color] || colors.purple;
+    return colors[color][type];
   };
 
   return (
-  <div className="min-h-screen bg-black pb-6">
-    {/* MOBILE ONLY: Header */}
-    <div className="lg:hidden bg-gray-900 border-b border-gray-800 p-4 sticky top-0 z-40">
-      <div className="flex items-center gap-4 mb-4">
-        <Link href="/profile">
-          <button 
-            onClick={() => router.back()}
-            className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-white" />
-          </button>
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-white text-xl font-bold">Help Center</h1>
-          <p className="text-gray-400 text-xs">Find answers and get support</p>
+    <div className="min-h-screen bg-black pb-6">
+      {/* MOBILE ONLY: Header */}
+      <div className="lg:hidden bg-gray-900 border-b border-gray-800 p-4 sticky top-0 z-40">
+        <div className="flex items-center gap-4 mb-4">
+          <Link href="/profile">
+            <button 
+              onClick={() => router.back()}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-white" />
+            </button>
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-white text-xl font-bold">Help Center</h1>
+            <p className="text-gray-400 text-xs">Find answers and get support</p>
+          </div>
         </div>
-      </div>
 
-      {/* Search Bar - Mobile */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search for help..."
-          className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
-        />
-      </div>
-    </div>
-
-    {/* DESKTOP ONLY: Page header */}
-    <div className="hidden lg:block bg-gray-900 border-b border-gray-800">
-      <div className="px-6 pt-8 pb-6">
-        <h1 className="text-white text-2xl font-bold mb-2">Help Center</h1>
-        <p className="text-gray-400 text-sm mb-6">Find answers and get support</p>
-        
-        {/* Search Bar - Desktop */}
+        {/* Search Bar - Mobile */}
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search help articles..."
-            className="w-full bg-gray-800 text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 text-base"
+            placeholder="Search for help..."
+            className="w-full bg-gray-800 text-white pl-10 pr-4 py-3 rounded-lg border border-gray-700 focus:outline-none focus:border-purple-500"
           />
         </div>
       </div>
-    </div>
 
-    <div className="p-4 lg:p-6 space-y-6">
+      {/* DESKTOP ONLY: Page header */}
+      <div className="hidden lg:block bg-gray-900 border-b border-gray-800">
+        <div className="px-6 pt-8 pb-6">
+          <h1 className="text-white text-2xl font-bold mb-2">Help Center</h1>
+          <p className="text-gray-400 text-sm mb-6">Find answers and get support</p>
+          
+          {/* Search Bar - Desktop */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search help articles..."
+              className="w-full bg-gray-800 text-white pl-12 pr-4 py-4 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 text-base"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 lg:p-6 space-y-6">
         {/* Welcome Banner */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-3">

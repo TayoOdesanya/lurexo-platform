@@ -7,8 +7,8 @@ import Link from 'next/link';
 
 export default function CookiePolicy() {
     const router = useRouter();
-  const [expandedSection, setExpandedSection] = useState<string | null>('what');
-  const [cookiePreferences, setCookiePreferences] = useState({
+    const [expandedSection, setExpandedSection] = useState<string | null>('what');
+    const [cookiePreferences, setCookiePreferences] = useState({
     essential: true,
     functional: true,
     analytics: true,

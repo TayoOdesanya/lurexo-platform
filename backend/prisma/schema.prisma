@@ -429,6 +429,139 @@ enum EventCategory {
   OTHER
 }
 
+<<<<<<< Updated upstream
+=======
+model Event {
+  id          String @id @default(uuid())
+  organizerId String @map("organizer_id")
+
+  // Basic Info
+  title       String
+  slug        String        @unique
+  description String        @db.Text
+  category    EventCategory
+  status      EventStatus   @default(DRAFT)
+
+  // Images
+  heroImage     String   @map("hero_image")
+  galleryImages String[] @map("gallery_images")
+
+  // Location
+  venue      String
+  address    String
+  city       String
+  country    String   @default("United Kingdom")
+  postalCode String   @map("postal_code")
+  latitude   Decimal? @db.Decimal(10, 8)
+  longitude  Decimal? @db.Decimal(11, 8)
+
+  // Date & Time
+  eventDate DateTime  @map("event_date")
+  doorsOpen DateTime? @map("doors_open")
+  eventEnd  DateTime? @map("event_end")
+  timezone  String    @default("Europe/London")
+
+  // Sales Configuration
+  saleStartDate      DateTime @map("sale_start_date")
+  saleEndDate        DateTime @map("sale_end_date")
+  maxTicketsPerOrder Int      @default(10) @map("max_tickets_per_order")
+
+  // Capacity & Sales
+  totalCapacity Int @map("total_capacity")
+  ticketsSold   Int @default(0) @map("tickets_sold")
+
+  // Revenue Tracking (in pence)
+  totalRevenue     Int           @default(0) @map("total_revenue")
+  organizerRevenue Int           @default(0) @map("organizer_revenue")
+  platformRevenue  Int           @default(0) @map("platform_revenue")
+  resaleCapType    ResaleCapType @default(PERCENTAGE_CAP)
+  resaleCapValue   Int?          @default(110)
+  allowResale      Boolean       @default(true)
+
+  // Guest List Configuration
+  enableGuestList Boolean @default(false) @map("enable_guest_list")
+  maxGuests       Int?    @map("max_guests")
+
+  // Timestamps
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  publishedAt DateTime? @map("published_at")
+
+  // Relations
+  organizer     User            @relation("OrganizerEvents", fields: [organizerId], references: [id], onDelete: Cascade)
+  ticketTiers   TicketTier[]
+  orders        Order[]
+  tickets       Ticket[]
+  listings      TicketListing[]
+  paymentSplits PaymentSplit[]
+  guests        Guest[]
+
+  @@index([organizerId])
+  @@index([status, eventDate])
+  @@index([category, eventDate])
+  @@index([slug])
+  @@map("events")
+}
+
+// ============================================
+// GUEST LIST MANAGEMENT
+// ============================================
+
+enum GuestCategory {
+  VIP
+  INDUSTRY
+  COMP
+  STAFF
+  PRESS
+  SPONSOR
+}
+
+enum GuestStatus {
+  INVITED
+  CONFIRMED
+  DECLINED
+  CHECKED_IN
+}
+
+model Guest {
+  id      String @id @default(uuid())
+  eventId String @map("event_id")
+
+  // Guest Information
+  name     String
+  email    String
+  mobile   String?
+  category GuestCategory @default(VIP)
+  status   GuestStatus   @default(INVITED)
+
+  // Ticket Details
+  ticketCode String @unique @map("ticket_code")
+  ticketLink String @map("ticket_link")
+
+  // Additional Info
+  notes String? @db.Text
+
+  // Timestamps
+  invitedAt   DateTime? @map("invited_at")
+  confirmedAt DateTime? @map("confirmed_at")
+  checkedInAt DateTime? @map("checked_in_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([email])
+  @@index([ticketCode])
+  @@map("guests")
+}
+
+// ============================================
+// COLLABORATORS & MARKETING
+// ============================================
+
+>>>>>>> Stashed changes
 enum CollaboratorRole {
   ADMIN
   EVENT_MANAGER
