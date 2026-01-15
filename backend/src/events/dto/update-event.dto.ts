@@ -26,6 +26,7 @@ export class UpdateEventDto {
 
   @IsArray()
   @IsOptional()
+  @IsString({ each: true })
   galleryImages?: string[];
 
   @IsString()

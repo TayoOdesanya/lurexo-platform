@@ -53,3 +53,17 @@ VSWorkspaceState.json
 *.sqlite
 *.sqlite-journal
 
+# Next.js / frontend build output
+**/.next/
+**/out/
+**/.turbo/
+**/.vercel/
+
+# Build output (monorepo-safe)
+**/dist/
+**/build/
+
+# Env files (monorepo-safe) - keep examples
+**/.env
+**/.env.*
+!**/.env.example

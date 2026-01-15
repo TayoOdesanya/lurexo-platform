@@ -5,17 +5,19 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { StorageService } from '../storage/storage.service';
+import { FILE_STORAGE, type FileStorage } from '../storage/file-storage.types';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventStatus } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
 @Injectable()
 export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
+    @Inject(FILE_STORAGE) private readonly storage: FileStorage,
   ) {}
 
   /**
@@ -27,6 +29,8 @@ export class EventsService {
     createEventDto: CreateEventDto,
     coverImage?: Express.Multer.File,
   ) {
+    // We generate the event ID upfront so we can store images by organiser/event.
+    const eventId = randomUUID();
     // Generate slug from title
     const slug = this.generateSlug(createEventDto.title);
 
@@ -41,36 +45,40 @@ export class EventsService {
       );
     }
 
-    // Upload cover image (heroImage) first, so we can store the URL in DB
-    let heroImageUrl = createEventDto.heroImage; // DTO requires a string; allow client to send placeholder
-    let heroImageBlobName: string | null = null;
-
+    // Upload cover image and store provider-neutral storage key
+    let heroImageKey = createEventDto.heroImage || '';
     if (coverImage?.buffer?.length) {
       try {
-        const uploaded = await this.storage.uploadEventCoverImage(
-          organizerId,
-          coverImage,
-        );
-        heroImageUrl = uploaded.url;
-        heroImageBlobName = uploaded.blobName;
-      } catch (e) {
+        const uploaded = await this.storage.uploadEventImage({
+          organiserId: organizerId,
+          eventId,
+          imageRole: 'hero',
+          fileBuffer: coverImage.buffer,
+          mimeType: coverImage.mimetype,
+          originalName: coverImage.originalname,
+        });
+        heroImageKey = uploaded.key;
+      } catch (_e) {
         throw new InternalServerErrorException('Failed to upload cover image');
       }
+    }
+
+    if (!heroImageKey) {
+      throw new BadRequestException('heroImage is required');
     }
 
     try {
       const event = await this.prisma.event.create({
         data: {
+          id: eventId,
           ...createEventDto,
           slug,
           organizerId,
           // If you want drafts from the UI, keep this DRAFT.
           // If you want status to come from the UI, add status to DTO + validation.
           status: 'DRAFT',
-          heroImage: heroImageUrl,
+          heroImage: heroImageKey,
           galleryImages: createEventDto.galleryImages || [],
-          // If you decide to store the blob name in DB later, add a column first.
-          // heroImageBlobName: heroImageBlobName ?? undefined,
         },
         include: {
           organizer: {

@@ -45,10 +45,9 @@ function toIsoEventDate(eventDate: string, eventTime: string): string {
 export async function POST(req: Request) {
   try {
     const accessToken = getBearerToken(req);
-
     const incoming = await req.formData();
 
-    // Read UI fields
+    // UI fields coming from create-event page
     const eventName = String(incoming.get("eventName") ?? "");
     const categoryUi = String(incoming.get("category") ?? "");
     const shortDescription = String(incoming.get("shortDescription") ?? "");
@@ -62,7 +61,7 @@ export async function POST(req: Request) {
     const status = String(incoming.get("status") ?? "DRAFT");
     const totalCapacityStr = String(incoming.get("totalCapacity") ?? "");
 
-    // Minimal early checks (optional; keeps UI errors nice)
+    // Minimal early checks (optional)
     if (!eventName.trim()) return NextResponse.json({ error: "eventName is required" }, { status: 400 });
     if (!categoryUi) return NextResponse.json({ error: "category is required" }, { status: 400 });
     if (!shortDescription.trim()) return NextResponse.json({ error: "shortDescription is required" }, { status: 400 });
@@ -71,7 +70,7 @@ export async function POST(req: Request) {
     const mappedCategory = mapCategory(categoryUi);
     const isoEventDate = toIsoEventDate(eventDate, eventTime);
 
-    // Required by CreateEventDto
+    // Required by backend CreateEventDto
     const saleStartDate = new Date().toISOString();
     const saleEndDate = isoEventDate;
 
@@ -94,38 +93,31 @@ export async function POST(req: Request) {
     fd.append("totalCapacity", String(safeCapacity));
     fd.append("status", status);
 
-    // File field name MUST match FileInterceptor('heroImage') on the NestJS side
+    // Pass through file if provided
     const coverImage = incoming.get("coverImage");
     if (coverImage instanceof File && coverImage.size > 0) {
       fd.append("coverImage", coverImage, coverImage.name);
-
     }
 
     const upstream = await fetch(`${API_BASE_URL}/events`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        // Do NOT set Content-Type for multipart; fetch sets the boundary.
+        // Don't set Content-Type for multipart; fetch sets boundary
       },
       body: fd,
       cache: "no-store",
     });
 
-    // ✅ Transparent pass-through of the real upstream body + status + content-type
     const contentType = upstream.headers.get("content-type") || "application/json";
     const raw = await upstream.text();
 
     return new NextResponse(raw, {
       status: upstream.status,
-      headers: {
-        "content-type": contentType,
-      },
+      headers: { "content-type": contentType },
     });
   } catch (e: any) {
     const msg = e?.message ?? "Unknown error";
-    return NextResponse.json(
-      { error: msg },
-      { status: msg === "Unauthenticated" ? 401 : 500 },
-    );
+    return NextResponse.json({ ok: false, error: msg }, { status: msg === "Unauthenticated" ? 401 : 500 });
   }
 }

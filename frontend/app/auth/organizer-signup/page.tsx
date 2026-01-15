@@ -22,6 +22,7 @@ import {
   Instagram,
   Twitter,
   MapPin,
+  X,
 } from 'lucide-react';
 
 type AccountType = 'artist' | 'organizer' | 'both' | null;

@@ -1,32 +1,32 @@
-# ---- Build stage ----
+# backend/Dockerfile
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
+# Copy only backend package files first (better caching)
+COPY backend/package*.json ./backend/
+WORKDIR /app/backend
 RUN npm ci
 
-COPY . .
+# Copy backend source
+COPY backend/ ./
 
-# Generate Prisma client
+# Generate Prisma client (now schema is at ./prisma/schema.prisma)
 RUN npx prisma generate
 
 # Build NestJS
 RUN npm run build
 
-
-# ---- Runtime stage ----
 FROM node:20-alpine AS runner
-WORKDIR /app
+WORKDIR /app/backend
 ENV NODE_ENV=production
 
-COPY package*.json ./
+COPY backend/package*.json ./
 RUN npm ci --omit=dev
 
-# Copy built app and prisma
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+# Copy built output + prisma schema + generated prisma client bits
+COPY --from=builder /app/backend/dist ./dist
+COPY --from=builder /app/backend/prisma ./prisma
+COPY --from=builder /app/backend/node_modules/.prisma ./node_modules/.prisma
 
-EXPOSE 3001
-
-CMD ["node", "dist/src/main.js"]
+EXPOSE 3000
+CMD ["node", "dist/main.js"]

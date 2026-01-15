@@ -263,15 +263,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = async () => {
-    try {
-      clearAuth();
-      setUser(null);
-      router.push('/');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
-  };
+const logout = async () => {
+  try {
+    clearAuth();
+    setUser(null);
+    // Don't navigate here - let the caller decide where to go
+  } catch (error) {
+    console.error('Logout failed:', error);
+  }
+};
+
 
   const resetPassword = async (email: string): Promise<AuthResult> => {
     try {

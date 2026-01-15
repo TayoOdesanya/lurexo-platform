@@ -1,8 +1,17 @@
 import { Module } from '@nestjs/common';
-import { StorageService } from './storage.service';
+import { AzureBlobFileStorageService } from './azure-blob-file-storage.service';
+import { ImagesController } from './images.controller';
+import { FILE_STORAGE } from './file-storage.types';
 
 @Module({
-  providers: [StorageService],
-  exports: [StorageService],
+  controllers: [ImagesController],
+  providers: [
+    AzureBlobFileStorageService,
+    {
+      provide: FILE_STORAGE,
+      useExisting: AzureBlobFileStorageService,
+    },
+  ],
+  exports: [FILE_STORAGE],
 })
 export class StorageModule {}

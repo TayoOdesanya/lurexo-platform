@@ -25,16 +25,12 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
 import { UserRole, EventStatus } from '@prisma/client';
-import { StorageService } from '../storage/storage.service';
 
 @Controller('events')
 export class EventsController {
   private readonly logger = new Logger(EventsController.name);
 
-  constructor(
-    private readonly eventsService: EventsService,
-    private readonly storageService: StorageService,
-  ) {}
+  constructor(private readonly eventsService: EventsService) {}
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
@@ -77,26 +73,8 @@ export class EventsController {
       throw new BadRequestException('coverImage file is required');
     }
 
-    // Upload only if a file exists
-    if (coverImageFile && coverImageFile.size > 0) {
-      // StorageService returns: { url, blobName }
-      const uploaded = await this.storageService.uploadEventCoverImage(
-        user.id,
-        coverImageFile,
-      );
-
-      this.logger.debug(`Uploaded cover image to blob: ${uploaded.blobName}`);
-
-      // ✅ Assign URL into dto.heroImage (string)
-      createEventDto.heroImage = uploaded.url;
-    }
-
-    // Create event (service can ignore coverImageFile if heroImage is already set)
-    const created = await this.eventsService.create(
-      user.id,
-      createEventDto,
-      coverImageFile,
-    );
+    // Create event (service uploads cover image and stores provider-neutral key)
+    const created = await this.eventsService.create(user.id, createEventDto, coverImageFile);
 
     this.logger.debug(`Event created: id=${created?.id ?? 'n/a'}`);
     return created;

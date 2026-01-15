@@ -25,6 +25,12 @@ COPY frontend/next-env.d.ts ./frontend/
 COPY frontend/eslint.config.* ./frontend/
 COPY frontend/postcss.config.* ./frontend/
 
+# TEMP DEBUG: verify Docker sees the config you edited
+RUN echo "=== PWD ===" && pwd \
+ && echo "=== ls /app/frontend ===" && ls -la ./frontend \
+ && echo "=== next.config.* ===" && ls -la ./frontend/next.config.* \
+ && echo "=== next.config.ts contents ===" && sed -n '1,200p' ./frontend/next.config.ts
+
 RUN npm --workspace frontend run build
 
 FROM node:20-bookworm-slim AS runner

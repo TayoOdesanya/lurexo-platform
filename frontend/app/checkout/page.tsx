@@ -126,7 +126,7 @@ export default function CheckoutPage() {
     { number: 3, title: 'Confirm', icon: '✓' }
   ];
 
-  const validateEmail = (email) => {
+  const validateEmail = (email: string) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
@@ -167,24 +167,24 @@ export default function CheckoutPage() {
     }
   };
 
-  const handleBackToStep = (step) => {
+  const handleBackToStep = (step: number) => {
     if (step < currentStep) {
       setSlideDirection('down');
       setCurrentStep(step);
     }
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const formatTime = (dateString) => {
+  const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleInputChange = (field, value) => {
+  const handleInputChange = (field: string, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
     if (field === 'email' && value) {

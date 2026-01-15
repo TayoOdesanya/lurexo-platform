@@ -1,12 +1,29 @@
 // frontend/lib/api.ts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api";
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(
+  /\/+$/,
+  ""
+);
+
+/**
+ * Build a full API URL for a given path.
+ * - `path` should start with `/` (e.g. `/events`)
+ */
+export function apiUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${p}`;
+}
+
+/** Convenience helper for events list endpoint */
+export function eventsUrl(): string {
+  return apiUrl("/events");
+}
 
 /**
  * Base JSON request helper (no auth header).
  */
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+  const url = apiUrl(path);
 
   const res = await fetch(url, {
     ...init,
@@ -101,18 +118,20 @@ export const AuthApi = {
 };
 
 // -------------------------
-// EVENTS API (keep your existing fetchEvents)
+// EVENTS API
 // -------------------------
 
-export async function fetchEvents() {
-  console.log("API_BASE_URL:", API_BASE_URL);
-  const url = `${API_BASE_URL}/events`;
+export async function fetchEvents(): Promise<any[]> {
+  const url = eventsUrl();
   console.log("Fetching:", url);
 
   const response = await fetch(url, { cache: "no-store" });
+
   if (!response.ok) {
     const body = await response.text().catch(() => "");
     throw new Error(`Failed to fetch events (${response.status}): ${body}`);
   }
-  return response.json();
+
+  // Expecting an array (e.g. [])
+  return (await response.json()) as any[];
 }

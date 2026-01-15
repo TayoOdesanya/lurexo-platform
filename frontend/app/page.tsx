@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useTheme } from './context/ThemeContext';
 import Link from 'next/link';
 import { Calendar, MapPin, Check, Shield, ArrowRight, Menu, X } from 'lucide-react';
+import { resolveEventImageSrc } from '@/lib/images';
+import { eventsUrl } from "@/lib/api";
 
 type HomeEvent = {
   id: string;
@@ -26,23 +28,26 @@ export default function HomePage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [featuredEvents, setFeaturedEvents] = useState([]);
 
-const isAbsoluteHttpUrl = (value: unknown): value is string =>
-    typeof value === 'string' && /^https?:\/\//i.test(value);
-
   const getEventHeroImage = (event: any): string | null => {
-    const hero = event?.heroImage;
-    return isAbsoluteHttpUrl(hero) ? hero : null;
+    return resolveEventImageSrc(event?.heroImage) ?? null;
   };
 
-  useEffect(() => {
-    setMounted(true);
-    // Fetch first 4 events for featured section
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/events`)
-      .then(res => res.json())
-      .then(data => setFeaturedEvents(data.slice(0, 4)))
-      .catch(err => console.error('Error fetching events:', err));
-  }, []);
+ useEffect(() => {
+  setMounted(true);
 
+  // Fetch first 4 events for featured section
+  fetch(eventsUrl(), { cache: "no-store" })
+    .then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text(); // could be HTML on error
+        throw new Error(`Events fetch failed ${res.status}: ${text.slice(0, 200)}`);
+      }
+      return res.json();
+    })
+    .then((data) => setFeaturedEvents((data ?? []).slice(0, 4)))
+    .catch((err) => console.error("Error fetching events:", err));
+}, []);
+ 
   if (!mounted) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">

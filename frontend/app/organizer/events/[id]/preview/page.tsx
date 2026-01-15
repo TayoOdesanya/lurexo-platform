@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { resolveEventImageSrc } from '@/lib/images';
 import {
   ArrowLeft,
   Edit,
@@ -470,7 +471,7 @@ export default function EventPreviewPage() {
       {/* Hero Image */}
       <div className="relative h-[35vh] sm:h-[45vh] md:h-[55vh] overflow-hidden">
         {eventUi.heroImage ? (
-          <img src={eventUi.heroImage} alt={eventUi.name} className="w-full h-full object-cover" />
+          <img src={resolveEventImageSrc(eventUi.heroImage) ?? ''} alt={eventUi.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gray-900" />
         )}

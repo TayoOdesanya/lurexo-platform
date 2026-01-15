@@ -9,7 +9,6 @@ import {
   IsArray,
   MinLength,
   IsNumber,
-  IsUrl,
 } from 'class-validator';
 import { EventCategory, EventStatus } from '@prisma/client';
 
@@ -33,12 +32,11 @@ export class CreateEventDto {
    */
   @IsOptional()
   @IsString()
-  // Optional: if you always store a URL here, keep this to validate it when present
-  @IsUrl({ require_tld: false }, { message: 'heroImage must be a valid URL' })
   heroImage?: string;
 
   @IsArray()
   @IsOptional()
+  @IsString({ each: true })
   galleryImages?: string[];
 
   @IsString()

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
+import { resolveEventImageSrc } from '@/lib/images';
 
 type Organizer = {
   name: string;
@@ -56,8 +57,7 @@ type EventDto = {
 
 function normalizeImageSrc(src: unknown): string | null {
   if (!src || typeof src !== 'string') return null;
-  if (src.startsWith('http://') || src.startsWith('https://')) return src;
-  return src.startsWith('/') ? src : `/${src}`;
+  return resolveEventImageSrc(src) ?? null;
 }
 
 function formatDate(dateString?: string | null) {
