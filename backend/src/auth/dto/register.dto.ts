@@ -1,4 +1,11 @@
-import { IsEmail, IsString, MinLength, IsEnum, IsOptional, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  MinLength,
+  IsEnum,
+  IsOptional,
+  Matches,
+} from 'class-validator';
 import { UserRole } from '@prisma/client';
 
 export class RegisterDto {
@@ -8,7 +15,8 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
   })
   password: string;
 
@@ -23,4 +31,25 @@ export class RegisterDto {
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole = UserRole.BUYER;
+
+  // Optional profile fields (used by organizer-signup and future profiles)
+  @IsString()
+  @IsOptional()
+  username?: string;
+
+  @IsString()
+  @IsOptional()
+  avatar?: string;
+
+  @IsString()
+  @IsOptional()
+  organizerName?: string;
+
+  @IsString()
+  @IsOptional()
+  organizerUsername?: string;
+
+  @IsString()
+  @IsOptional()
+  organizerAvatar?: string;
 }

@@ -21,7 +21,18 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, firstName, lastName, role } = registerDto;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      username,
+      avatar,
+      organizerName,
+      organizerUsername,
+      organizerAvatar,
+    } = registerDto;
 
     // Check if user already exists
     const existingUser = await this.prisma.user.findUnique({
@@ -30,6 +41,18 @@ export class AuthService {
 
     if (existingUser) {
       throw new ConflictException('Email already registered');
+    }
+
+    // Username is optional, but if provided it must be unique
+    if (username) {
+      const existingUsername = await this.prisma.user.findUnique({
+        where: { username },
+        select: { id: true },
+      });
+
+      if (existingUsername) {
+        throw new ConflictException('Username already taken');
+      }
     }
 
     // Hash password
@@ -51,6 +74,13 @@ export class AuthService {
         lastName,
         role: role || 'BUYER',
         verificationToken,
+
+        ...(username ? { username } : {}),
+        ...(avatar ? { avatar } : {}),
+
+        ...(organizerName ? { organizerName } : {}),
+        ...(organizerUsername ? { organizerUsername } : {}),
+        ...(organizerAvatar ? { organizerAvatar } : {}),
       },
       select: {
         id: true,

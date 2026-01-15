@@ -35,6 +35,9 @@ export default function SignupPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+const [verificationToken, setVerificationToken] = useState<string | null>(null);
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3001/api';
+
 
   // Form data
   const [formData, setFormData] = useState({
@@ -224,43 +227,70 @@ export default function SignupPage() {
     }
   };
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
-    
-    try {
-      // TODO: Implement actual API call
-      console.log('Submitting signup:', {
-        accountType,
-        email: formData.email,
-        artist: accountType === 'artist' || accountType === 'both' ? {
-          name: formData.artistName,
-          username: formData.artistUsername,
-          genre: formData.artistGenre,
-          bio: formData.artistBio,
-        } : undefined,
-        organizer: accountType === 'organizer' || accountType === 'both' ? {
-          name: formData.organizationName,
-          username: formData.organizationUsername,
-          type: formData.organizationType,
-          bio: formData.organizationBio,
-          city: formData.organizationCity,
-          country: formData.organizationCountry,
-        } : undefined,
-      });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Success - move to step 4
-      setStep(4);
-      
-    } catch (error) {
-      console.error('Signup error:', error);
-      setErrors({ submit: 'An error occurred. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
+const handleSubmit = async () => {
+  setIsSubmitting(true);
+
+  try {
+    if (!accountType) {
+      setErrors({ submit: 'Please select an account type.' });
+      return;
     }
-  };
+
+    const includesOrganizer = accountType === 'organizer' || accountType === 'both';
+
+    const displayName =
+      (includesOrganizer ? formData.organizationName : formData.artistName).trim() ||
+      formData.email.split('@')[0] ||
+      'User';
+
+    // Backend requires firstName/lastName min length 2
+    const parts = displayName.split(/\s+/).filter(Boolean);
+    const firstName = (parts[0] || displayName || 'User').slice(0, 50);
+    const lastName = (parts.slice(1).join(' ') || parts[0] || 'User').slice(0, 50);
+
+    const role = includesOrganizer ? 'ORGANIZER' : 'BUYER';
+    const username = includesOrganizer ? formData.organizationUsername : formData.artistUsername;
+
+    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: formData.email,
+        password: formData.password,
+        firstName,
+        lastName,
+        role,
+
+        ...(username ? { username } : {}),
+
+        ...(includesOrganizer
+          ? {
+              organizerName: formData.organizationName,
+              organizerUsername: formData.organizationUsername,
+            }
+          : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      setErrors({ submit: txt || 'Signup failed. Please try again.' });
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
+    const token: string | undefined = data.verificationToken;
+
+    setVerificationToken(token || null);
+    setStep(4);
+  } catch (error) {
+    console.error('Signup error:', error);
+    setErrors({ submit: 'An error occurred. Please try again.' });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -888,7 +918,30 @@ export default function SignupPage() {
                   </div>
                   <div>
                     <p className="text-white font-medium">Verify your email</p>
-                    <p className="text-gray-400 text-sm">Check {formData.email} for verification link</p>
+{verificationToken ? (
+  <div className="mt-1 space-y-2">
+    <p className="text-gray-400 text-sm">
+      Email sending isn't enabled yet, so here's your verification token for dev:
+    </p>
+    <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 font-mono text-xs text-gray-200 break-all">
+      {verificationToken}
+    </div>
+    <button
+      onClick={() => {
+        const qs = new URLSearchParams();
+        qs.set('email', formData.email);
+        qs.set('token', verificationToken);
+        router.push('/verify-email?' + qs.toString());
+      }}
+      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-semibold transition-colors"
+    >
+      Verify Email Now
+      <ArrowRight className="w-4 h-4" />
+    </button>
+  </div>
+) : (
+  <p className="text-gray-400 text-sm">Check {formData.email} for your verification link</p>
+)}
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -917,7 +970,13 @@ export default function SignupPage() {
             </div>
 
             <button
-              onClick={() => router.push('/organizer/dashboard')}
+              onClick={() =>
+  router.push(
+    accountType === 'organizer' || accountType === 'both'
+      ? '/organizer/dashboard'
+      : '/dashboard',
+  )
+}
               className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-semibold transition-colors"
             >
               Go to Dashboard
