@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,17 +14,44 @@ import {
   Upload,
   X,
   Loader2,
-  Wand2
+  Wand2,
 } from 'lucide-react';
 
 function getAccessTokenClient(): string | null {
   try {
-     return localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+    return localStorage.getItem('authToken') || localStorage.getItem('accessToken');
   } catch {
     return null;
   }
 }
 
+type TicketTierUi = {
+  name: string;
+  price: string; // keep as string for input; server parses to pence
+  quantity: string; // keep as string for input
+  description?: string;
+  maxPerOrder?: string; // optional
+};
+
+function emptyTier(): TicketTierUi {
+  return {
+    name: '',
+    price: '0',
+    quantity: '1',
+    description: '',
+    maxPerOrder: '10',
+  };
+}
+
+function toInt(v: unknown, fallback = 0) {
+  const n = Number.parseInt(String(v ?? ''), 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toFloat(v: unknown, fallback = 0) {
+  const n = Number.parseFloat(String(v ?? ''));
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -38,14 +65,13 @@ export default function CreateEventPage() {
 
   // ✅ required: must be logged in so backend can infer organiserId via /auth/me
   useEffect(() => {
-  const token = getAccessTokenClient();
-  if (!token) {
-    router.push('/login?redirect=' + encodeURIComponent('/organizer/create-event'));
-    return;
-  }
-  setAccessToken(token);
-}, [router]);
-
+    const token = getAccessTokenClient();
+    if (!token) {
+      router.push('/login?redirect=' + encodeURIComponent('/organizer/create-event'));
+      return;
+    }
+    setAccessToken(token);
+  }, [router]);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -66,7 +92,9 @@ export default function CreateEventPage() {
     postcode: '',
 
     // Step 3: Tickets
-    ticketTiers: [{ name: 'General Admission', price: '', quantity: '', description: '' }],
+    ticketTiers: [
+      { name: 'General Admission', price: '0', quantity: '100', description: '', maxPerOrder: '10' } as TicketTierUi,
+    ],
     totalCapacity: '100',
 
     // Step 4: Settings
@@ -91,7 +119,9 @@ export default function CreateEventPage() {
     { id: 'other', name: 'Other', emoji: '📅' },
   ];
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -196,6 +226,7 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
     if (currentStep > 1) setCurrentStep(currentStep - 1);
   };
 
+  // ✅ Stronger validation (capacity + tiers)
   function validateBasics(): string | null {
     if (!formData.eventName.trim()) return 'Event name is required';
     if (!formData.category) return 'Category is required';
@@ -206,6 +237,34 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
     if (!formData.address.trim()) return 'Address is required';
     if (!formData.city.trim()) return 'City is required';
     if (!formData.postcode.trim()) return 'Postcode is required';
+
+    const totalCapacity = toInt(formData.totalCapacity, 0);
+    if (!Number.isFinite(totalCapacity) || totalCapacity < 1) return 'Total capacity must be at least 1';
+
+    const tiers = Array.isArray(formData.ticketTiers) ? formData.ticketTiers : [];
+    if (tiers.length === 0) return 'Add at least one ticket tier';
+
+    let tiersTotal = 0;
+
+    for (let i = 0; i < tiers.length; i++) {
+      const t = tiers[i];
+      const label = `Tier ${i + 1}`;
+
+      const name = String(t?.name ?? '').trim();
+      const qty = toInt(t?.quantity, NaN as any);
+      const price = toFloat(t?.price, NaN as any);
+
+      if (!name) return `${label}: name is required`;
+      if (!Number.isFinite(qty) || qty < 1) return `${label}: quantity must be at least 1`;
+      if (!Number.isFinite(price) || price < 0) return `${label}: price must be 0 or more`;
+
+      tiersTotal += qty;
+    }
+
+    if (tiersTotal > totalCapacity) {
+      return `Total tier quantity (${tiersTotal}) exceeds capacity (${totalCapacity})`;
+    }
+
     return null;
   }
 
@@ -216,51 +275,48 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
    * Server route saves image to: /public/events/<userId>/...
    */
   const submitEvent = async (status: 'DRAFT' | 'PUBLISHED') => {
-  if (!accessToken) throw new Error('Not signed in');
+    if (!accessToken) throw new Error('Not signed in');
 
-  const fd = new FormData();
-  fd.append('eventName', formData.eventName);
-  fd.append('category', formData.category);
-  fd.append('shortDescription', formData.shortDescription);
-  fd.append('longDescription', formData.longDescription);
+    const fd = new FormData();
+    fd.append('eventName', formData.eventName);
+    fd.append('category', formData.category);
+    fd.append('shortDescription', formData.shortDescription);
+    fd.append('longDescription', formData.longDescription);
 
-  fd.append('eventDate', formData.eventDate);
-  fd.append('eventTime', formData.eventTime);
-  fd.append('venue', formData.venue);
-  fd.append('address', formData.address);
-  fd.append('city', formData.city);
-  fd.append('postcode', formData.postcode);
+    fd.append('eventDate', formData.eventDate);
+    fd.append('eventTime', formData.eventTime);
+    fd.append('venue', formData.venue);
+    fd.append('address', formData.address);
+    fd.append('city', formData.city);
+    fd.append('postcode', formData.postcode);
 
-  fd.append('status', status);
-  fd.append('totalCapacity', formData.totalCapacity);
+    fd.append('status', status);
+    fd.append('totalCapacity', formData.totalCapacity);
+    fd.append('ticketTiers', JSON.stringify(formData.ticketTiers ?? []));
 
-  if (formData.coverImage) {
-    // The backend will upload this to Azure Blob Storage
-    fd.append('coverImage', formData.coverImage, formData.coverImage.name);
-    
-  }
+    if (formData.coverImage) {
+      // The backend will upload this to Azure Blob Storage
+      fd.append('coverImage', formData.coverImage, formData.coverImage.name);
+    }
 
-  const res = await fetch('/api/events/create', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: fd,
-  });
+    const res = await fetch('/api/events/create', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: fd,
+    });
 
-  if (!res.ok) {
-    const msg =
-      (await res.json().catch(() => null))?.error ??
-      (await res.text().catch(() => '')) ??
-      'Failed to save event';
-    throw new Error(msg);
-  }
+    if (!res.ok) {
+      const msg =
+        (await res.json().catch(() => null))?.error ??
+        (await res.text().catch(() => '')) ??
+        'Failed to save event';
+      throw new Error(msg);
+    }
 
-  return res.json();
-};
-
-
-
+    return res.json();
+  };
 
   const handleSaveDraft = async () => {
     const err = validateBasics();
@@ -304,6 +360,43 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
     }
   };
 
+  // ----- Step 3 tier editor helpers -----
+  const tiers = useMemo(
+    () => (Array.isArray(formData.ticketTiers) ? formData.ticketTiers : []),
+    [formData.ticketTiers],
+  );
+
+  const capacity = useMemo(() => toInt(formData.totalCapacity, 0), [formData.totalCapacity]);
+  const tiersTotal = useMemo(
+    () => tiers.reduce((sum, t) => sum + Math.max(0, toInt(t.quantity, 0)), 0),
+    [tiers],
+  );
+  const overCapacity = capacity > 0 && tiersTotal > capacity;
+
+  const updateTier = (index: number, patch: Partial<TicketTierUi>) => {
+    setFormData((prev) => {
+      const next = [...(Array.isArray(prev.ticketTiers) ? prev.ticketTiers : [])];
+      const current = next[index] ?? emptyTier();
+      next[index] = { ...current, ...patch };
+      return { ...prev, ticketTiers: next };
+    });
+  };
+
+  const addTier = () => {
+    setFormData((prev) => ({
+      ...prev,
+      ticketTiers: [...(Array.isArray(prev.ticketTiers) ? prev.ticketTiers : []), emptyTier()],
+    }));
+  };
+
+  const removeTier = (index: number) => {
+    setFormData((prev) => {
+      const next = [...(Array.isArray(prev.ticketTiers) ? prev.ticketTiers : [])];
+      next.splice(index, 1);
+      return { ...prev, ticketTiers: next };
+    });
+  };
+
   return (
     <div className="min-h-screen bg-black">
       {/* Top Bar - Progress & Actions */}
@@ -322,7 +415,10 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
               >
                 {isSaving ? 'Saving…' : 'Save Draft'}
               </button>
-              <button onClick={() => router.push('/organizer/dashboard')} className="p-2 text-gray-400 hover:text-white transition-colors">
+              <button
+                onClick={() => router.push('/organizer/dashboard')}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -343,8 +439,8 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                         isActive
                           ? 'bg-purple-600 text-white'
                           : isCompleted
-                          ? 'bg-green-600 text-white'
-                          : 'bg-gray-800 text-gray-400'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-gray-800 text-gray-400'
                       }`}
                     >
                       {isCompleted ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
@@ -393,13 +489,21 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
 
               {formData.coverImagePreview ? (
                 <div className="relative group">
-                  <img src={formData.coverImagePreview} alt="Event cover" className="w-full h-64 object-cover rounded-xl" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={formData.coverImagePreview}
+                    alt="Event cover"
+                    className="w-full h-64 object-cover rounded-xl"
+                  />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-4">
                     <label className="cursor-pointer px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-gray-100 transition-colors">
                       Change Image
                       <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                     </label>
-                    <button onClick={handleRemoveImage} className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-500 transition-colors">
+                    <button
+                      onClick={handleRemoveImage}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-500 transition-colors"
+                    >
                       Remove
                     </button>
                   </div>
@@ -421,7 +525,9 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                     <Sparkles className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0 animate-pulse" />
                     <div>
                       <p className="text-purple-300 font-medium text-sm mb-1">AI Poster Generation</p>
-                      <p className="text-purple-200/80 text-xs">Creating a unique artistic poster based on your event details. This may take a few moments...</p>
+                      <p className="text-purple-200/80 text-xs">
+                        Creating a unique artistic poster based on your event details. This may take a few moments...
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -619,30 +725,163 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
           </div>
         )}
 
-        {/* Step 3: Tickets (Placeholder) */}
+        {/* Step 3: Tickets (Tier Editor) */}
         {currentStep === 3 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-6">
-            <div>
-              <h2 className="text-white font-bold text-lg mb-1">Capacity</h2>
-              <p className="text-gray-400 text-sm">Required. Total number of tickets available for the event.</p>
+          <div className="space-y-6">
+            {/* Capacity */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <div>
+                <h2 className="text-white font-bold text-lg mb-1">Capacity</h2>
+                <p className="text-gray-400 text-sm">Required. Total number of tickets available for the event.</p>
+              </div>
+
+              <label className="block">
+                <span className="text-white font-medium mb-2 block">Total Capacity *</span>
+                <input
+                  type="number"
+                  name="totalCapacity"
+                  min={1}
+                  value={formData.totalCapacity}
+                  onChange={handleInputChange}
+                  className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                  placeholder="e.g., 250"
+                  required
+                />
+              </label>
+
+              <div className="text-sm">
+                <span className="text-gray-400">Tiers total:</span>{' '}
+                <span className={overCapacity ? 'text-red-400 font-semibold' : 'text-white font-semibold'}>
+                  {tiersTotal} / {capacity || 0}
+                </span>
+              </div>
+
+              {overCapacity && (
+                <div className="p-3 rounded-xl border border-red-500/30 bg-red-500/10 text-sm text-red-200">
+                  Total tier quantity ({tiersTotal}) exceeds capacity ({capacity}). Reduce quantities or increase
+                  capacity.
+                </div>
+              )}
             </div>
 
-            <label className="block">
-              <span className="text-white font-medium mb-2 block">Total Capacity *</span>
-              <input
-                type="number"
-                name="totalCapacity"
-                min={1}
-                value={formData.totalCapacity}
-                onChange={handleInputChange}
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
-                placeholder="e.g., 250"
-                required
-              />
-            </label>
+            {/* Tier Editor */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-white font-bold text-lg">Ticket Tiers</h2>
+                  <p className="text-gray-400 text-sm">Create one or more tiers (e.g. Early Bird, General Admission).</p>
+                </div>
 
-            <div className="text-gray-500 text-sm">
-              Ticket tier creation can come next — for now, this lets your backend create the event successfully.
+                <button
+                  type="button"
+                  onClick={addTier}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors text-sm"
+                >
+                  + Add tier
+                </button>
+              </div>
+
+              {tiers.length === 0 ? (
+                <div className="p-4 rounded-xl border border-gray-800 bg-gray-950/30 text-gray-400 text-sm">
+                  No tiers yet. Add at least one tier to sell tickets.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tiers.map((tier, idx) => {
+                    const nameOk = String(tier.name ?? '').trim().length > 0;
+                    const qty = toInt(tier.quantity, 0);
+                    const qtyOk = qty >= 1;
+                    const price = toFloat(tier.price, -1);
+                    const priceOk = price >= 0;
+
+                    return (
+                      <div key={idx} className="p-4 rounded-2xl border border-gray-800 bg-gray-950/20 space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-white font-semibold">Tier {idx + 1}</div>
+                            <div className="text-xs text-gray-400">Configure pricing and quantity</div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => removeTier(idx)}
+                            className="px-3 py-2 rounded-lg border border-red-500/40 text-red-300 hover:bg-red-500/10 transition-colors text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-white">Name *</label>
+                            <input
+                              value={tier.name}
+                              onChange={(e) => updateTier(idx, { name: e.target.value })}
+                              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                              placeholder="e.g., General Admission"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-white">Price (£) *</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={tier.price}
+                              onChange={(e) => updateTier(idx, { price: e.target.value })}
+                              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-white">Quantity *</label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={tier.quantity}
+                              onChange={(e) => updateTier(idx, { quantity: e.target.value })}
+                              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-white">Description (optional)</label>
+                            <input
+                              value={tier.description ?? ''}
+                              onChange={(e) => updateTier(idx, { description: e.target.value })}
+                              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                              placeholder="e.g., Standing entry, doors 7pm"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-sm font-medium text-white">Max per order (optional)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              value={tier.maxPerOrder ?? ''}
+                              onChange={(e) => updateTier(idx, { maxPerOrder: e.target.value })}
+                              className="w-full bg-gray-800 text-white px-4 py-3 rounded-xl border border-gray-700 focus:outline-none focus:border-purple-500 transition-colors"
+                              placeholder="10"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="text-sm space-y-1">
+                          {!nameOk && <div className="text-red-300">Name is required.</div>}
+                          {!qtyOk && <div className="text-red-300">Quantity must be at least 1.</div>}
+                          {!priceOk && <div className="text-red-300">Price must be 0 or more.</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

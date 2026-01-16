@@ -15,30 +15,40 @@ function getBearerToken(req: Request): string {
 function mapCategory(uiCategory: string): string {
   const v = (uiCategory || "").toLowerCase();
   switch (v) {
-    case "music":
-      return "MUSIC";
-    case "sports":
-      return "SPORTS";
-    case "arts":
-      return "ARTS";
-    case "comedy":
-      return "COMEDY";
+    case "music": return "MUSIC";
+    case "sports": return "SPORTS";
+    case "arts": return "ARTS";
+    case "comedy": return "COMEDY";
     case "theatre":
-    case "theater":
-      return "THEATER";
-    case "business":
-      return "CONFERENCE";
-    case "food":
-      return "OTHER";
+    case "theater": return "THEATER";
+    case "business": return "CONFERENCE";
+    case "food": return "OTHER";
     case "other":
-    default:
-      return "OTHER";
+    default: return "OTHER";
   }
 }
 
 function toIsoEventDate(eventDate: string, eventTime: string): string {
-  // eventDate: "2026-03-08", eventTime: "10:15"
   const d = new Date(`${eventDate}T${eventTime || "00:00"}:00`);
+  return d.toISOString();
+}
+
+function parseMoneyToPence(v: unknown): number {
+  if (typeof v === "number") return Math.max(0, Math.round(v * 100));
+  const s = String(v ?? "").trim();
+  if (!s) return 0;
+  // remove currency symbols/commas
+  const cleaned = s.replace(/[£,$\s,]/g, "");
+  const n = Number.parseFloat(cleaned);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.round(n * 100));
+}
+
+function parseOptionalIso(dt: unknown): string | undefined {
+  const s = String(dt ?? "").trim();
+  if (!s) return undefined;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return undefined;
   return d.toISOString();
 }
 
@@ -47,7 +57,7 @@ export async function POST(req: Request) {
     const accessToken = getBearerToken(req);
     const incoming = await req.formData();
 
-    // UI fields coming from create-event page
+    // UI fields
     const eventName = String(incoming.get("eventName") ?? "");
     const categoryUi = String(incoming.get("category") ?? "");
     const shortDescription = String(incoming.get("shortDescription") ?? "");
@@ -61,7 +71,16 @@ export async function POST(req: Request) {
     const status = String(incoming.get("status") ?? "DRAFT");
     const totalCapacityStr = String(incoming.get("totalCapacity") ?? "");
 
-    // Minimal early checks (optional)
+    // Ticket tiers (JSON string from UI)
+    const ticketTiersRaw = String(incoming.get("ticketTiers") ?? "[]");
+    let ticketTiers: any[] = [];
+    try {
+      const parsed = JSON.parse(ticketTiersRaw);
+      ticketTiers = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      ticketTiers = [];
+    }
+
     if (!eventName.trim()) return NextResponse.json({ error: "eventName is required" }, { status: 400 });
     if (!categoryUi) return NextResponse.json({ error: "category is required" }, { status: 400 });
     if (!shortDescription.trim()) return NextResponse.json({ error: "shortDescription is required" }, { status: 400 });
@@ -70,12 +89,45 @@ export async function POST(req: Request) {
     const mappedCategory = mapCategory(categoryUi);
     const isoEventDate = toIsoEventDate(eventDate, eventTime);
 
-    // Required by backend CreateEventDto
+    // Required by CreateEventDto
     const saleStartDate = new Date().toISOString();
     const saleEndDate = isoEventDate;
 
     const totalCapacity = Number.parseInt(totalCapacityStr || "100", 10);
     const safeCapacity = Number.isFinite(totalCapacity) ? totalCapacity : 100;
+
+    // Validate tiers against capacity (if tiers provided)
+    const normalizedTiers = ticketTiers
+      .map((t, idx) => {
+        const name = String(t?.name ?? "").trim();
+        const description = String(t?.description ?? "").trim() || undefined;
+        const quantity = Number.parseInt(String(t?.quantity ?? "0"), 10) || 0;
+        const maxPerOrder = Number.parseInt(String(t?.maxPerOrder ?? "10"), 10) || 10;
+        const price = parseMoneyToPence(t?.price);
+        const saleStart = parseOptionalIso(t?.saleStartDate);
+        const saleEnd = parseOptionalIso(t?.saleEndDate);
+
+        return {
+          idx,
+          name,
+          description,
+          quantity,
+          maxPerOrder,
+          price,
+          saleStartDate: saleStart,
+          saleEndDate: saleEnd,
+          displayOrder: idx,
+        };
+      })
+      .filter(t => t.name && t.quantity > 0);
+
+    const totalTierQty = normalizedTiers.reduce((sum, t) => sum + t.quantity, 0);
+    if (normalizedTiers.length > 0 && totalTierQty > safeCapacity) {
+      return NextResponse.json(
+        { error: `Total ticket tier quantity (${totalTierQty}) exceeds capacity (${safeCapacity})` },
+        { status: 400 }
+      );
+    }
 
     // Build DTO-shaped multipart payload for NestJS
     const fd = new FormData();
@@ -93,18 +145,15 @@ export async function POST(req: Request) {
     fd.append("totalCapacity", String(safeCapacity));
     fd.append("status", status);
 
-    // Pass through file if provided
     const coverImage = incoming.get("coverImage");
     if (coverImage instanceof File && coverImage.size > 0) {
       fd.append("coverImage", coverImage, coverImage.name);
     }
 
+    // 1) Create the event
     const upstream = await fetch(`${API_BASE_URL}/events`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        // Don't set Content-Type for multipart; fetch sets boundary
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
       body: fd,
       cache: "no-store",
     });
@@ -112,12 +161,69 @@ export async function POST(req: Request) {
     const contentType = upstream.headers.get("content-type") || "application/json";
     const raw = await upstream.text();
 
-    return new NextResponse(raw, {
-      status: upstream.status,
-      headers: { "content-type": contentType },
-    });
+    if (!upstream.ok) {
+      return new NextResponse(raw, { status: upstream.status, headers: { "content-type": contentType } });
+    }
+
+    // 2) Create tiers
+    let createdEvent: any;
+    try {
+      createdEvent = JSON.parse(raw);
+    } catch {
+      // Event created but response wasn’t JSON (unexpected)
+      return new NextResponse(raw, { status: 200, headers: { "content-type": contentType } });
+    }
+
+    const eventId = createdEvent?.id;
+    if (!eventId) {
+      return NextResponse.json({ error: "Event created but no id returned" }, { status: 500 });
+    }
+
+    const createdTiers: any[] = [];
+    if (normalizedTiers.length > 0) {
+      for (const tier of normalizedTiers) {
+        const tierRes = await fetch(`${API_BASE_URL}/events/${eventId}/ticket-tiers`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            name: tier.name,
+            description: tier.description,
+            price: tier.price, // pence
+            quantity: tier.quantity,
+            maxPerOrder: tier.maxPerOrder,
+            saleStartDate: tier.saleStartDate,
+            saleEndDate: tier.saleEndDate,
+            displayOrder: tier.displayOrder,
+          }),
+          cache: "no-store",
+        });
+
+        if (!tierRes.ok) {
+          // best-effort rollback so you don't end up with an event but no tiers
+          await fetch(`${API_BASE_URL}/events/${eventId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${accessToken}` },
+            cache: "no-store",
+          }).catch(() => null);
+
+          const tierErrText = await tierRes.text().catch(() => "");
+          return NextResponse.json(
+            { error: `Failed creating ticket tier "${tier.name}": ${tierErrText || tierRes.statusText}` },
+            { status: 400 }
+          );
+        }
+
+        const createdTier = await tierRes.json().catch(() => ({}));
+        createdTiers.push(createdTier);
+      }
+    }
+
+    return NextResponse.json({ ...createdEvent, ticketTiers: createdTiers }, { status: 200 });
   } catch (e: any) {
     const msg = e?.message ?? "Unknown error";
-    return NextResponse.json({ ok: false, error: msg }, { status: msg === "Unauthenticated" ? 401 : 500 });
+    return NextResponse.json({ error: msg }, { status: msg === "Unauthenticated" ? 401 : 500 });
   }
 }

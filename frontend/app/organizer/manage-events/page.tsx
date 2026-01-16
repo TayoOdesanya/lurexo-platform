@@ -25,11 +25,13 @@ import {
   Share2,
 } from 'lucide-react';
 import { apiRequestAuth } from '../../../lib/api';
+import { resolveEventImageSrc } from '@/lib/images';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3001/api';
 
 function getAccessTokenClient(): string | null {
   try {
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem('authToken') ?? localStorage.getItem('accessToken');
   } catch {
     return null;
   }
@@ -187,7 +189,8 @@ export default function ManageEventsPage() {
   }, [router]);
 
   // ✅ load from backend
-  useEffect(() => {
+// ✅ load from backend
+useEffect(() => {
   if (!accessToken) return;
 
   let cancelled = false;
@@ -197,27 +200,36 @@ export default function ManageEventsPage() {
       setLoading(true);
       setError(null);
 
-      // ✅ organizer-specific endpoint (auth)
-      const apiEvents = await apiRequestAuth<ApiEvent[]>(
-        `/events/my-events`,
-        accessToken,
-        { method: 'GET' }
-      );
+console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`);
+
+      const res = await fetch(`${API_BASE_URL}/events/my-events`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
       if (cancelled) return;
 
-      const mapped = (apiEvents ?? []).map(toUiEvent);
-      setEvents(mapped);
-    } catch (e: any) {
-      if (cancelled) return;
-
-      const msg = String(e?.message ?? '');
-      if (msg.includes('401') || msg.toLowerCase().includes('unauthorized')) {
-        try { localStorage.removeItem('accessToken'); } catch {}
+      if (res.status === 401) {
+        try {
+          localStorage.removeItem('accessToken');
+        } catch {}
         router.push('/organizer/login');
         return;
       }
 
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `Failed to load events (${res.status})`);
+      }
+
+      const apiEvents = (await res.json()) as ApiEvent[];
+      const mapped = (apiEvents ?? []).map(toUiEvent);
+      setEvents(mapped);
+    } catch (e: any) {
+      if (cancelled) return;
       setError(e?.message ?? 'Failed to load events');
     } finally {
       if (!cancelled) setLoading(false);

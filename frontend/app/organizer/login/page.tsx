@@ -1,10 +1,16 @@
-import { redirect } from "next/navigation";
+// frontend/app/organizer/login/page.tsx
+import { redirect } from 'next/navigation';
 
-export default function OrganizerLoginPage({
-  searchParams,
-}: {
-  searchParams?: { redirect?: string };
+type SearchParams = {
+  redirect?: string;
+};
+
+export default async function OrganizerLoginPage(props: {
+  searchParams?: SearchParams | Promise<SearchParams>;
 }) {
-  const r = searchParams?.redirect ?? "/organizer/dashboard";
+  // Next 15+ may provide searchParams as a Promise
+  const sp = await Promise.resolve(props.searchParams ?? {});
+  const r = sp.redirect ?? '/organizer/dashboard';
+
   redirect(`/login?redirect=${encodeURIComponent(r)}`);
 }
