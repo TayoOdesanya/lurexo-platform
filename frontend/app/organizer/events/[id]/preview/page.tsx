@@ -22,7 +22,6 @@ import {
   AlertCircle,
   Zap,
 } from 'lucide-react';
-import { EventsApi, type ApiEvent } from '@/lib/api';
 
 // ------- UI model that matches what your preview page expects
 type UiTicketTier = {
@@ -71,6 +70,50 @@ type UiEvent = {
 
   faqs: { question: string; answer: string }[];
 };
+
+type ApiEvent = {
+  id: string;
+  title?: string | null;
+  category?: string | null;
+  location?: string | null;
+
+  description?: string | null;
+  eventDate?: string | null;
+  doorsOpen?: string | null;
+
+  heroImage?: string | null;
+  imageUrl?: string | null;
+  galleryImages?: string[] | null;
+
+  ticketPrice?: number | string | null;
+  serviceFee?: number | string | null;
+
+  ticketsSold?: number | null;
+  capacity?: number | null;
+
+  venue?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+
+  status?: string | null;
+
+  allowResale?: boolean | null;
+  resaleCapValue?: number | null;
+
+  organizer?: { name?: string | null; verified?: boolean | null } | null;
+
+  ticketTiers?: Array<{
+    id: string;
+    name?: string | null;
+    price?: number | null;
+    quantity?: number | null;
+    quantitySold?: number | null;
+    description?: string | null;
+  }> | null;
+};
+
 
 // If your DB stores money in pence, keep this conversion.
 // If your API already returns pounds, change to: return value;
@@ -226,7 +269,12 @@ export default function EventPreviewPage() {
         setLoading(true);
         setError(null);
 
-        const dto = await EventsApi.getById(id);
+        const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+        const res = await fetch(`${base}/events/${id}`, { cache: 'no-store' });
+        
+        if (!res.ok) throw new Error('Failed to fetch event');
+        const dto = (await res.json()) as ApiEvent;
+
         if (cancelled) return;
 
         setEventRaw(dto);
@@ -294,63 +342,77 @@ export default function EventPreviewPage() {
 
   const totalPrice = selectedTier ? (selectedTier.price + selectedTier.serviceFee) * quantity : 0;
 
-  async function saveDraft() {
-    if (!id || !eventRaw) return;
-    try {
-      setBusy('saving');
-      setError(null);
+const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
 
-      // Adjust payload based on backend DTO. This works if backend accepts status changes.
-      const updated = await EventsApi.patch(id, { status: 'DRAFT' } as any);
-      setEventRaw(updated);
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to save');
-    } finally {
-      setBusy(null);
-    }
+async function saveDraft() {
+  if (!id) return;
+  try {
+    setBusy('saving'); setError(null);
+
+    const res = await fetch(`${base}/events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'DRAFT' }),
+    });
+    if (!res.ok) throw new Error('Failed to save draft');
+
+    const updated = (await res.json()) as ApiEvent;
+    setEventRaw(updated);
+  } catch (e: any) {
+    setError(e?.message ?? 'Failed to save');
+  } finally {
+    setBusy(null);
   }
+}
 
-  async function publish() {
-    if (!id) return;
-    try {
-      setBusy('publishing');
-      setError(null);
+async function publish() {
+  if (!id) return;
+  try {
+    setBusy('publishing'); setError(null);
 
-      // Preferred: POST /events/:id/publish
-      const updated = await EventsApi.publish(id);
-      setEventRaw(updated);
-      router.push('/organizer/dashboard');
-    } catch (ePublish: any) {
-      // Fallback: PATCH status to PUBLISHED
-      try {
-        const updated = await EventsApi.patch(id, { status: 'PUBLISHED' } as any);
-        setEventRaw(updated);
-        router.push('/organizer/dashboard');
-      } catch (e2: any) {
-        setError(e2?.message ?? ePublish?.message ?? 'Failed to publish');
-      }
-    } finally {
-      setBusy(null);
+    // try publish endpoint first
+    let res = await fetch(`${base}/events/${id}/publish`, { method: 'POST' });
+
+    // fallback to PATCH
+    if (!res.ok) {
+      res = await fetch(`${base}/events/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'PUBLISHED' }),
+      });
     }
+
+    if (!res.ok) throw new Error('Failed to publish');
+
+    const updated = (await res.json()) as ApiEvent;
+    setEventRaw(updated);
+    router.push('/organizer/dashboard');
+  } catch (e: any) {
+    setError(e?.message ?? 'Failed to publish');
+  } finally {
+    setBusy(null);
   }
+}
 
-  async function remove() {
-    if (!id) return;
-    const ok = window.confirm('Delete this event? This cannot be undone.');
-    if (!ok) return;
+async function remove() {
+  if (!id) return;
+  const ok = window.confirm('Delete this event? This cannot be undone.');
+  if (!ok) return;
 
-    try {
-      setBusy('deleting');
-      setError(null);
+  try {
+    setBusy('deleting'); setError(null);
 
-      await EventsApi.delete(id);
-      router.push('/organizer/dashboard');
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to delete');
-    } finally {
-      setBusy(null);
-    }
+    const res = await fetch(`${base}/events/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete');
+
+    router.push('/organizer/dashboard');
+  } catch (e: any) {
+    setError(e?.message ?? 'Failed to delete');
+  } finally {
+    setBusy(null);
   }
+}
+
 
   if (loading) {
     return (

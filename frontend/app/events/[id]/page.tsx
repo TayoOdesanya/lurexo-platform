@@ -94,27 +94,30 @@ export default function EventDetailPage() {
   // Hydration guard
   useEffect(() => setMounted(true), []);
 
-  useEffect(() => {
-    if (!id) return;
+useEffect(() => {
+  if (!id) return;
 
-    setLoading(true);
-    setError(null);
+  setLoading(true);
+  setError(null);
 
-    fetch(`http://localhost:3001/api/events/${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch event');
-        return res.json();
-      })
-      .then((data: EventDto) => {
-        setEvent(data);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        console.error('Error:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        setLoading(false);
-      });
-  }, [id]);
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+
+  fetch(`${base}/events/${id}`)
+    .then((res) => {
+      if (!res.ok) throw new Error('Failed to fetch event');
+      return res.json();
+    })
+    .then((data: EventDto) => {
+      setEvent(data);
+      setLoading(false);
+    })
+    .catch((err: unknown) => {
+      console.error('Error:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setLoading(false);
+    });
+}, [id]);
+
 
   /**
    * IMPORTANT: all hooks must run on every render.

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+
 import Link from 'next/link';
 import {
   Calendar,
@@ -55,6 +56,9 @@ function toFloat(v: unknown, fallback = 0) {
 
 export default function CreateEventPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const eventId = searchParams.get('eventId'); // null when creating
+  const isEditMode = !!eventId;
   const [currentStep, setCurrentStep] = useState(1);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingLongDescription, setIsGeneratingLongDescription] = useState(false);
@@ -64,14 +68,102 @@ export default function CreateEventPage() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
 
   // ✅ required: must be logged in so backend can infer organiserId via /auth/me
-  useEffect(() => {
-    const token = getAccessTokenClient();
-    if (!token) {
-      router.push('/login?redirect=' + encodeURIComponent('/organizer/create-event'));
-      return;
+useEffect(() => {
+  const token = getAccessTokenClient();
+  const target = eventId
+    ? `/organizer/create-event?eventId=${encodeURIComponent(eventId)}`
+    : '/organizer/create-event';
+
+  if (!token) {
+    router.push('/login?redirect=' + encodeURIComponent(target));
+    return;
+  }
+  setAccessToken(token);
+}, [router, eventId]);
+
+useEffect(() => {
+  if (!accessToken) return;
+  if (!eventId) return;
+
+  let cancelled = false;
+
+  (async () => {
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+      const res = await fetch(`${base}/events/${eventId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+      });
+
+      if (!res.ok) throw new Error('Failed to load event for editing');
+      const e = await res.json();
+
+      if (cancelled) return;
+
+      // eventDate / time split
+      const dt = e.eventDate ? new Date(e.eventDate) : null;
+      const eventDate = dt ? dt.toISOString().slice(0, 10) : '';
+      const eventTime = dt ? dt.toTimeString().slice(0, 5) : '';
+
+      // map tiers (backend may return ticketTiers, or fallback)
+      const tiersFromApi =
+        Array.isArray(e.ticketTiers) && e.ticketTiers.length
+          ? e.ticketTiers.map((t: any) => ({
+              name: String(t?.name ?? ''),
+              // assume pounds if already decimal; if pence then divide by 100
+              price: String(Number(t?.price ?? 0) / 100),
+              quantity: String(t?.quantity ?? 1),
+              description: String(t?.description ?? ''),
+              maxPerOrder: String(t?.maxPerOrder ?? '10'),
+            }))
+          : [
+              {
+                name: 'General Admission',
+                price: String(e.ticketPrice ?? '0'),
+                quantity: String(e.totalCapacity ?? e.capacity ?? '100'),
+                description: '',
+                maxPerOrder: '10',
+              },
+            ];
+
+      const hero = e.heroImage ?? e.imageUrl ?? '';
+
+      setFormData((prev) => ({
+        ...prev,
+        eventName: e.title ?? prev.eventName,
+        category: e.category ?? prev.category,
+        shortDescription: e.description ?? prev.shortDescription,
+        longDescription: e.longDescription ?? prev.longDescription,
+
+        // IMPORTANT: we can only set preview URL here, not the actual File
+        coverImage: null,
+        coverImagePreview: hero || prev.coverImagePreview,
+
+        // date/location
+        eventDate,
+        eventTime,
+        venue: e.venue ?? prev.venue,
+        address: e.address ?? prev.address,
+        city: e.city ?? prev.city,
+        postcode: e.postalCode ?? e.postcode ?? prev.postcode,
+
+        // tickets
+        ticketTiers: tiersFromApi,
+        totalCapacity: String(e.totalCapacity ?? e.capacity ?? prev.totalCapacity),
+
+        status: (e.status ?? prev.status) as any,
+      }));
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : 'Failed to load event');
     }
-    setAccessToken(token);
-  }, [router]);
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [accessToken, eventId]);
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -299,13 +391,17 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
       fd.append('coverImage', formData.coverImage, formData.coverImage.name);
     }
 
-    const res = await fetch('/api/events/create', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: fd,
-    });
+const url = eventId ? `/api/events/${eventId}` : '/api/events/create';
+const method = eventId ? 'PUT' : 'POST';
+
+const res = await fetch(url, {
+  method,
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+  },
+  body: fd,
+});
+
 
     if (!res.ok) {
       const msg =
@@ -404,7 +500,9 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-white font-bold text-xl sm:text-2xl">Create New Event</h1>
+<h1 className="text-white font-bold text-xl sm:text-2xl">
+  {isEditMode ? 'Edit Event' : 'Create New Event'}
+</h1>
               <p className="text-gray-400 text-sm">Step {currentStep} of 4</p>
             </div>
             <div className="flex items-center gap-3">

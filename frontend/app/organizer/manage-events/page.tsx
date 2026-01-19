@@ -27,7 +27,9 @@ import {
 import { apiRequestAuth } from '../../../lib/api';
 import { resolveEventImageSrc } from '@/lib/images';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3001/api';
+const API_BASE_URL =
+  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api').replace(/\/$/, '');
+
 
 function getAccessTokenClient(): string | null {
   try {
@@ -68,11 +70,6 @@ type ApiEvent = {
   createdAt?: string | null;
 };
 
-function normalizeImageSrc(src?: string) {
-  if (!src) return undefined;
-  if (/^https?:\/\//i.test(src)) return src;       // blob absolute
-  return src.startsWith('/') ? src : `/${src}`;    // local/public
-}
 
 function safeNumber(v: any, fallback = 0) {
   const n = typeof v === 'string' ? Number(v) : v;
@@ -474,11 +471,12 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
                 <div className="w-full lg:w-32 h-32 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {event.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={normalizeImageSrc(event.image)}
-                      alt={event.name}
-                      className="w-full h-full object-cover"
-                    />
+<img
+  src={resolveEventImageSrc(event.image) ?? ''}
+  alt={event.name}
+  className="w-full h-full object-cover"
+/>
+
 
                   ) : (
                     <Calendar className="w-12 h-12 text-purple-400" />
@@ -564,7 +562,7 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2">
-                    <Link href={`/organizer/manage-events/${event.id}/edit`}>
+                    <Link href={`/organizer/create-event?eventId=${encodeURIComponent(event.id)}`}>
                       <button className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <Edit className="w-4 h-4" />
                         Edit Event
