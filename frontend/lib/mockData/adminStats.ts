@@ -643,3 +643,332 @@ export const mockTicketDetail: SupportTicket & { messages: SupportMessage[] } = 
 // Filter tickets by status
 export const mockOpenTickets = mockSupportTickets.filter(t => t.status === 'open' || t.status === 'in_progress' || t.status === 'waiting_response');
 export const mockResolvedTickets = mockSupportTickets.filter(t => t.status === 'resolved' || t.status === 'closed');
+
+// ============================================================================
+// USERS MANAGEMENT DATA
+// ============================================================================
+
+import { AdminUser } from '../../app/types/admin';
+
+export const mockAdminUsers: AdminUser[] = [
+  {
+    id: 'user-001',
+    email: 'sarah.johnson@email.com',
+    name: 'Sarah Johnson',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-11-15T10:30:00Z',
+    lastLogin: '2026-01-15T14:22:00Z',
+    totalSpent: 234.50,
+    ticketsPurchased: 8,
+  },
+  {
+    id: 'user-002',
+    email: 'michael.chen@email.com',
+    name: 'Michael Chen',
+    role: 'organizer',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-10-20T09:15:00Z',
+    lastLogin: '2026-01-16T08:45:00Z',
+    totalSpent: 0,
+    ticketsPurchased: 0,
+  },
+  {
+    id: 'user-003',
+    email: 'emma.wilson@email.com',
+    name: 'Emma Wilson',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-12-05T16:20:00Z',
+    lastLogin: '2026-01-14T19:30:00Z',
+    totalSpent: 450.00,
+    ticketsPurchased: 12,
+  },
+  {
+    id: 'user-004',
+    email: 'david.lee@email.com',
+    name: 'David Lee',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: true,
+    suspensionReason: 'Violated terms of service - attempted ticket scalping',
+    createdAt: '2025-09-10T11:00:00Z',
+    lastLogin: '2026-01-10T12:15:00Z',
+    totalSpent: 89.50,
+    ticketsPurchased: 3,
+  },
+  {
+    id: 'user-005',
+    email: 'admin@lurexo.com',
+    name: 'Tayo (Admin)',
+    role: 'admin',
+    isAdmin: true,
+    isSuspended: false,
+    createdAt: '2025-08-01T00:00:00Z',
+    lastLogin: '2026-01-16T21:35:00Z',
+    totalSpent: 0,
+    ticketsPurchased: 0,
+  },
+  {
+    id: 'user-006',
+    email: 'sophie.martin@email.com',
+    name: 'Sophie Martin',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-11-28T13:45:00Z',
+    lastLogin: '2026-01-15T17:00:00Z',
+    totalSpent: 125.00,
+    ticketsPurchased: 5,
+  },
+  {
+    id: 'user-007',
+    email: 'james.brown@email.com',
+    name: 'James Brown',
+    role: 'organizer',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-10-12T08:30:00Z',
+    lastLogin: '2026-01-16T09:20:00Z',
+    totalSpent: 0,
+    ticketsPurchased: 0,
+  },
+  {
+    id: 'user-008',
+    email: 'olivia.taylor@email.com',
+    name: 'Olivia Taylor',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2026-01-02T15:10:00Z',
+    lastLogin: '2026-01-16T10:05:00Z',
+    totalSpent: 75.00,
+    ticketsPurchased: 2,
+  },
+  {
+    id: 'user-009',
+    email: 'lucas.anderson@email.com',
+    name: 'Lucas Anderson',
+    role: 'user',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-09-25T12:00:00Z',
+    lastLogin: '2026-01-13T20:45:00Z',
+    totalSpent: 567.50,
+    ticketsPurchased: 18,
+  },
+  {
+    id: 'user-010',
+    email: 'charlotte.white@email.com',
+    name: 'Charlotte White',
+    role: 'artist',
+    isAdmin: false,
+    isSuspended: false,
+    createdAt: '2025-11-01T10:00:00Z',
+    lastLogin: '2026-01-15T11:30:00Z',
+    totalSpent: 0,
+    ticketsPurchased: 0,
+  },
+];
+
+// ============================================================================
+// ORGANIZERS MANAGEMENT DATA
+// ============================================================================
+
+import { AdminOrganizer } from '../../app/types/admin';
+
+export const mockAdminOrganizers: AdminOrganizer[] = [
+  {
+    id: 'org-001',
+    name: 'EventCo Ltd',
+    email: 'contact@eventco.com',
+    verificationStatus: 'verified',
+    documentsSubmitted: true,
+    totalEvents: 12,
+    totalRevenue: 87500,
+    createdAt: '2025-09-15T10:00:00Z',
+    verifiedAt: '2025-09-20T14:30:00Z',
+  },
+  {
+    id: 'org-002',
+    name: 'Live Nation UK',
+    email: 'info@livenation.co.uk',
+    verificationStatus: 'verified',
+    documentsSubmitted: true,
+    totalEvents: 8,
+    totalRevenue: 156000,
+    createdAt: '2025-08-10T09:00:00Z',
+    verifiedAt: '2025-08-12T11:00:00Z',
+  },
+  {
+    id: 'org-003',
+    name: 'Quick Rich Ltd',
+    email: 'admin@quickrich.com',
+    verificationStatus: 'pending',
+    documentsSubmitted: true,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2026-01-14T15:30:00Z',
+  },
+  {
+    id: 'org-004',
+    name: 'Tech Events UK',
+    email: 'hello@techeventsuk.com',
+    verificationStatus: 'pending',
+    documentsSubmitted: true,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2026-01-13T10:15:00Z',
+  },
+  {
+    id: 'org-005',
+    name: 'Night Owls Ltd',
+    email: 'bookings@nightowls.co.uk',
+    verificationStatus: 'pending',
+    documentsSubmitted: true,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2026-01-12T14:45:00Z',
+  },
+  {
+    id: 'org-006',
+    name: 'Family Events Co',
+    email: 'info@familyevents.com',
+    verificationStatus: 'unverified',
+    documentsSubmitted: false,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2026-01-10T08:30:00Z',
+  },
+  {
+    id: 'org-007',
+    name: 'Scam Corp',
+    email: 'fake@scamcorp.xyz',
+    verificationStatus: 'rejected',
+    documentsSubmitted: true,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2025-12-20T12:00:00Z',
+  },
+  {
+    id: 'org-008',
+    name: 'City Events Ltd',
+    email: 'admin@cityevents.com',
+    verificationStatus: 'verified',
+    documentsSubmitted: true,
+    totalEvents: 5,
+    totalRevenue: 234500,
+    createdAt: '2025-10-05T11:20:00Z',
+    verifiedAt: '2025-10-08T09:45:00Z',
+  },
+  {
+    id: 'org-009',
+    name: 'Romance Events',
+    email: 'contact@romanceevents.co.uk',
+    verificationStatus: 'verified',
+    documentsSubmitted: true,
+    totalEvents: 3,
+    totalRevenue: 45600,
+    createdAt: '2025-11-12T16:00:00Z',
+    verifiedAt: '2025-11-15T10:30:00Z',
+  },
+  {
+    id: 'org-010',
+    name: 'Elite Connections',
+    email: 'vip@eliteconnections.com',
+    verificationStatus: 'unverified',
+    documentsSubmitted: false,
+    totalEvents: 0,
+    totalRevenue: 0,
+    createdAt: '2026-01-15T09:00:00Z',
+  },
+];
+
+// Detailed organizer data for verification
+export interface OrganizerDetailForVerification extends AdminOrganizer {
+  phone: string;
+  website?: string;
+  companyRegistration: string;
+  taxId: string;
+  address: {
+    street: string;
+    city: string;
+    postcode: string;
+    country: string;
+  };
+  documents: {
+    id: string;
+    type: 'business_license' | 'tax_document' | 'id_proof' | 'insurance';
+    fileName: string;
+    uploadedAt: string;
+    status: 'pending' | 'approved' | 'rejected';
+    url: string;
+  }[];
+  bankDetails: {
+    accountName: string;
+    sortCode: string;
+    accountNumber: string;
+  };
+  notes?: string;
+}
+
+export const mockOrganizerDetailForVerification: OrganizerDetailForVerification = {
+  id: 'org-003',
+  name: 'Quick Rich Ltd',
+  email: 'admin@quickrich.com',
+  verificationStatus: 'pending',
+  documentsSubmitted: true,
+  totalEvents: 0,
+  totalRevenue: 0,
+  createdAt: '2026-01-14T15:30:00Z',
+  phone: '+44 20 7946 0958',
+  website: 'https://quickrich.com',
+  companyRegistration: '12345678',
+  taxId: 'GB123456789',
+  address: {
+    street: '123 Business Street',
+    city: 'London',
+    postcode: 'SW1A 1AA',
+    country: 'United Kingdom',
+  },
+  documents: [
+    {
+      id: 'doc-001',
+      type: 'business_license',
+      fileName: 'business_license.pdf',
+      uploadedAt: '2026-01-14T15:35:00Z',
+      status: 'pending',
+      url: '#',
+    },
+    {
+      id: 'doc-002',
+      type: 'tax_document',
+      fileName: 'tax_registration.pdf',
+      uploadedAt: '2026-01-14T15:36:00Z',
+      status: 'pending',
+      url: '#',
+    },
+    {
+      id: 'doc-003',
+      type: 'id_proof',
+      fileName: 'directors_id.pdf',
+      uploadedAt: '2026-01-14T15:37:00Z',
+      status: 'pending',
+      url: '#',
+    },
+  ],
+  bankDetails: {
+    accountName: 'Quick Rich Ltd',
+    sortCode: '12-34-56',
+    accountNumber: '12345678',
+  },
+  notes: 'New organizer, appears legitimate but requires thorough verification.',
+};
+
+// Filter organizers by status
+export const mockPendingOrganizers = mockAdminOrganizers.filter(o => o.verificationStatus === 'pending');
+export const mockVerifiedOrganizers = mockAdminOrganizers.filter(o => o.verificationStatus === 'verified');
+export const mockUnverifiedOrganizers = mockAdminOrganizers.filter(o => o.verificationStatus === 'unverified');
