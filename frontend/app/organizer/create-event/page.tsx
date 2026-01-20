@@ -22,6 +22,8 @@ import {
   AlertTriangle,
   MapPin,
   Clock,
+  DollarSign,
+  TrendingUp,
 } from 'lucide-react';
 
 // 🚀 DEV MODE TOGGLE - Set to true to bypass auth for testing
@@ -819,66 +821,29 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                 ))}
               </div>
 
-              {/* Ticket Summary */}
-              <div className="mt-6 bg-purple-500/10 border border-purple-500/20 rounded-lg p-6">
-                <h3 className="text-white font-bold text-lg mb-4">Revenue Breakdown</h3>
-                
-                <div className="space-y-4">
-                  {/* Gross Revenue */}
-                  <div className="flex items-center justify-between pb-4 border-b border-purple-500/20">
-                    <div>
-                      <p className="text-purple-300 text-sm">Total Ticket Capacity</p>
-                      <p className="text-white font-bold text-2xl mt-1">
-                        {formData.ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0).toLocaleString()} tickets
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-purple-300 text-sm">Gross Revenue (if all sell)</p>
-                      <p className="text-white font-bold text-2xl mt-1">
-                        £{formData.ticketTiers.reduce((sum, tier) => {
-                          const price = parseFloat(tier.price) || 0;
-                          const quantity = parseInt(tier.quantity) || 0;
-                          return sum + (price * quantity);
-                        }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                    </div>
+              {/* SIMPLIFIED TICKET SUMMARY */}
+              <div className="mt-6 bg-purple-500/10 border border-purple-500/20 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-300 text-sm">Total Capacity</p>
+                    <p className="text-white font-bold text-xl mt-1">
+                      {formData.ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0).toLocaleString()} tickets
+                    </p>
                   </div>
-
-                  {/* Platform Fee */}
-                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-orange-300 font-semibold text-sm flex items-center gap-2">
-                        <span className="text-orange-400">💳</span>
-                        Platform Fee (8% - you pay)
-                      </p>
-                      <p className="text-orange-400 font-bold text-xl">
-                        -£{(formData.ticketTiers.reduce((sum, tier) => {
-                          const price = parseFloat(tier.price) || 0;
-                          const quantity = parseInt(tier.quantity) || 0;
-                          return sum + (price * quantity);
-                        }, 0) * 0.08).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                    <p className="text-orange-200/80 text-xs">Deducted from your earnings</p>
-                  </div>
-
-                  {/* Your Net Earnings */}
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-green-300 font-semibold text-sm">Your Net Earnings</p>
-                        <p className="text-green-200/80 text-xs mt-1">After platform fee (8%)</p>
-                      </div>
-                      <p className="text-green-400 font-bold text-3xl">
-                        £{(formData.ticketTiers.reduce((sum, tier) => {
-                          const price = parseFloat(tier.price) || 0;
-                          const quantity = parseInt(tier.quantity) || 0;
-                          return sum + (price * quantity);
-                        }, 0) * 0.92).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                    </div>
+                  <div className="text-right">
+                    <p className="text-purple-300 text-sm">Potential Revenue</p>
+                    <p className="text-white font-bold text-xl mt-1">
+                      £{formData.ticketTiers.reduce((sum, tier) => {
+                        const price = parseFloat(tier.price) || 0;
+                        const quantity = parseInt(tier.quantity) || 0;
+                        return sum + (price * quantity);
+                      }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
+                <p className="text-purple-200/60 text-xs mt-3 text-center">
+                  💰 See full revenue breakdown in Review & Publish step
+                </p>
               </div>
             </div>
 
@@ -1266,6 +1231,197 @@ The venue is fully accessible with wheelchair access, accessible toilets, and as
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* REVENUE BREAKDOWN - NEW SECTION */}
+            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                  <DollarSign className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-xl">Revenue Breakdown</h2>
+                  <p className="text-gray-400 text-sm">Financial summary if all tickets sell</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Ticket Capacity & Gross Revenue */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Ticket className="w-5 h-5 text-purple-400" />
+                      <p className="text-purple-300 text-sm font-medium">Total Ticket Capacity</p>
+                    </div>
+                    <p className="text-white font-bold text-3xl">
+                      {formData.ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0).toLocaleString()}
+                    </p>
+                    <p className="text-purple-200/60 text-xs mt-1">tickets available</p>
+                  </div>
+
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="w-5 h-5 text-blue-400" />
+                      <p className="text-blue-300 text-sm font-medium">Gross Revenue</p>
+                    </div>
+                    <p className="text-white font-bold text-3xl">
+                      £{formData.ticketTiers.reduce((sum, tier) => {
+                        const price = parseFloat(tier.price) || 0;
+                        const quantity = parseInt(tier.quantity) || 0;
+                        return sum + (price * quantity);
+                      }, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-blue-200/60 text-xs mt-1">if all tickets sell</p>
+                  </div>
+                </div>
+
+                {/* Platform Fee (You Pay) */}
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">💳</span>
+                      <div>
+                        <p className="text-orange-300 font-semibold">Platform Fee (8% - you pay)</p>
+                        <p className="text-orange-200/60 text-xs mt-0.5">Deducted from your earnings</p>
+                      </div>
+                    </div>
+                    <p className="text-orange-400 font-bold text-2xl">
+                      -£{(formData.ticketTiers.reduce((sum, tier) => {
+                        const price = parseFloat(tier.price) || 0;
+                        const quantity = parseInt(tier.quantity) || 0;
+                        return sum + (price * quantity);
+                      }, 0) * 0.08).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Early Adopter Discount */}
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🎉</span>
+                    <div>
+                      <p className="text-green-300 font-semibold text-sm mb-1">
+                        Early Adopter Discount Available!
+                      </p>
+                      <p className="text-green-200/80 text-xs">
+                        Launch special: Pay only 6% platform fee for your first 6 months (save 25%)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Your Net Earnings */}
+                <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-2 border-emerald-500/30 rounded-xl p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle className="w-6 h-6 text-emerald-400" />
+                        <p className="text-emerald-300 font-bold text-lg">Your Net Earnings</p>
+                      </div>
+                      <p className="text-emerald-200/80 text-sm">After 8% platform fee</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-emerald-400 font-bold text-4xl">
+                        £{(formData.ticketTiers.reduce((sum, tier) => {
+                          const price = parseFloat(tier.price) || 0;
+                          const quantity = parseInt(tier.quantity) || 0;
+                          return sum + (price * quantity);
+                        }, 0) * 0.92).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-emerald-300/60 text-xs mt-1">you keep 92%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="relative py-2">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-700"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-gray-900 px-3 text-xs text-gray-500">Additional Information</span>
+                  </div>
+                </div>
+
+                {/* Transaction Fee (Fans Pay) */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">ℹ️</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-blue-300 font-semibold text-sm">
+                          Transaction Fee (3% - fans pay)
+                        </p>
+                        <p className="text-blue-400 font-bold text-lg">
+                          +£{(formData.ticketTiers.reduce((sum, tier) => {
+                            const price = parseFloat(tier.price) || 0;
+                            const quantity = parseInt(tier.quantity) || 0;
+                            return sum + (price * quantity);
+                          }, 0) * 0.03).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <p className="text-blue-200/80 text-xs">
+                        Added to ticket price at checkout - does not affect your earnings
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Guest List Impact */}
+                {formData.enableGuestList && formData.maxGuestTickets && parseInt(formData.maxGuestTickets) > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-amber-300 font-semibold text-sm mb-2">
+                          Guest List Impact
+                        </p>
+                        <div className="space-y-1 text-xs text-amber-200">
+                          <p>• {parseInt(formData.maxGuestTickets).toLocaleString()} complimentary tickets allocated</p>
+                          {formData.guestTicketPool === 'regular' ? (
+                            <>
+                              <p className="text-amber-300 font-medium mt-2">
+                                These tickets reduce your paid inventory
+                              </p>
+                              <div className="mt-3 pt-3 border-t border-amber-500/20">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-amber-300 font-medium">Adjusted Net Earnings:</span>
+                                  <span className="text-amber-400 font-bold text-lg">
+                                    £{(() => {
+                                      const totalTickets = formData.ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0);
+                                      const guestTickets = parseInt(formData.maxGuestTickets) || 0;
+                                      const paidTickets = totalTickets - guestTickets;
+                                      const totalRevenue = formData.ticketTiers.reduce((sum, tier) => {
+                                        const price = parseFloat(tier.price) || 0;
+                                        const quantity = parseInt(tier.quantity) || 0;
+                                        return sum + (price * quantity);
+                                      }, 0);
+                                      const avgPrice = totalTickets > 0 ? totalRevenue / totalTickets : 0;
+                                      return ((paidTickets * avgPrice) * 0.92).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    })()}
+                                  </span>
+                                </div>
+                                <p className="text-amber-200/60 text-xs mt-1">
+                                  Based on {formData.ticketTiers.reduce((sum, tier) => sum + (parseInt(tier.quantity) || 0), 0) - (parseInt(formData.maxGuestTickets) || 0)} paid tickets
+                                </p>
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-amber-200/80 mt-2">
+                              ✓ Using separate pool - does not affect paid ticket revenue
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Note */}
+                <p className="text-gray-400 text-xs text-center pt-2">
+                  Fee structure subject to change. Future updates will allow organizers to choose who pays fees.
+                </p>
               </div>
             </div>
 

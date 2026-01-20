@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Search, 
   Users,
@@ -14,8 +16,10 @@ import {
   MoreVertical,
   Ban,
   CheckCircle,
-  Eye,
   Filter,
+  Activity,
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { mockAdminUsers } from '../../../lib/mockData/adminStats';
 
@@ -24,11 +28,13 @@ type StatusFilter = 'all' | 'active' | 'suspended';
 type SortBy = 'name' | 'created' | 'lastLogin' | 'spent';
 
 export default function UsersManagementPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortBy>('created');
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Filter users
   let filteredUsers = mockAdminUsers.filter((user) => {
@@ -74,6 +80,12 @@ export default function UsersManagementPage() {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const newUsers = mockAdminUsers.filter(u => new Date(u.createdAt) > thirtyDaysAgo).length;
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setRefreshing(false);
+  };
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Never';
@@ -133,13 +145,31 @@ export default function UsersManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
-          Users Management
-        </h1>
-        <p className="text-slate-400 text-sm sm:text-base">
-          Manage all platform users and their access
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+            Users Management
+          </h1>
+          <p className="text-slate-400 text-sm sm:text-base">
+            Manage all platform users and their access
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700/50 rounded-lg text-slate-300 transition-all disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+          <Link
+            href="/admin/users/activity"
+            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-medium transition-all"
+          >
+            <Activity className="w-4 h-4" />
+            User Activity
+          </Link>
+        </div>
       </div>
 
       {/* Stats Dashboard */}
@@ -188,6 +218,17 @@ export default function UsersManagementPage() {
           <p className="text-2xl font-bold text-white">{newUsers}</p>
           <p className="text-xs text-slate-400 mt-1">Recent signups</p>
         </div>
+      </div>
+
+      {/* Mobile Activity Button */}
+      <div className="sm:hidden">
+        <Link
+          href="/admin/users/activity"
+          className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-white text-sm font-medium transition-all"
+        >
+          <Activity className="w-4 h-4" />
+          View User Activity
+        </Link>
       </div>
 
       {/* Filters */}
@@ -341,7 +382,8 @@ export default function UsersManagementPage() {
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
-                    className={`hover:bg-slate-800/50 transition-colors ${
+                    onClick={() => router.push(`/admin/users/${user.id}`)}
+                    className={`hover:bg-slate-800/50 transition-colors cursor-pointer ${
                       user.isSuspended ? 'opacity-60' : ''
                     }`}
                   >
@@ -386,14 +428,20 @@ export default function UsersManagementPage() {
                         {!user.isAdmin && (
                           user.isSuspended ? (
                             <button
-                              onClick={() => handleUnsuspendUser(user.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnsuspendUser(user.id);
+                              }}
                               className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-xs font-medium transition-all"
                             >
                               Unsuspend
                             </button>
                           ) : (
                             <button
-                              onClick={() => handleSuspendUser(user.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSuspendUser(user.id);
+                              }}
                               className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-lg text-xs font-medium transition-all"
                             >
                               Suspend
@@ -421,7 +469,8 @@ export default function UsersManagementPage() {
           filteredUsers.map((user) => (
             <div
               key={user.id}
-              className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 border border-slate-700/50 shadow-lg ${
+              onClick={() => router.push(`/admin/users/${user.id}`)}
+              className={`bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4 border border-slate-700/50 shadow-lg cursor-pointer hover:border-indigo-500/30 transition-all ${
                 user.isSuspended ? 'opacity-60' : ''
               }`}
             >
@@ -482,7 +531,10 @@ export default function UsersManagementPage() {
                 <div className="pt-3 border-t border-slate-700/50">
                   {user.isSuspended ? (
                     <button
-                      onClick={() => handleUnsuspendUser(user.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUnsuspendUser(user.id);
+                      }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-sm font-medium transition-all"
                     >
                       <CheckCircle className="w-4 h-4" />
@@ -490,7 +542,10 @@ export default function UsersManagementPage() {
                     </button>
                   ) : (
                     <button
-                      onClick={() => handleSuspendUser(user.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSuspendUser(user.id);
+                      }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-lg text-sm font-medium transition-all"
                     >
                       <Ban className="w-4 h-4" />

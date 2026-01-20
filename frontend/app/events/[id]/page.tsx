@@ -128,8 +128,8 @@ export default function EventDetailPage() {
     refund: false
   });
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section as keyof typeof prev] }));
   };
 
   const totalPrice = (selectedTier.price + selectedTier.serviceFee) * quantity;
@@ -138,18 +138,18 @@ export default function EventDetailPage() {
   const showUrgency = availableTickets <= 100 || percentSold >= 75;
   const showSocialProof = percentSold >= 50 && percentSold < 75;
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
   
 
-  const formatTime = (dateString) => {
+  const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const handleShare = (platform) => {
+  const handleShare = (platform: 'copy' | 'twitter' | 'facebook') => {
     const url = window.location.href;
     const text = `Check out ${mockEvent.title} on Lurexo!`;
     
@@ -308,52 +308,53 @@ export default function EventDetailPage() {
                   </div>
                 </Link>
 
-           {/* Quick Info Cards - 4 Cards: 2x2 Grid, Purple/Blue Colors */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-            {/* Date */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <Calendar className="w-5 h-5 text-purple-400" />
-              </div>
-              <div className="min-w-0">
-                <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Date</div>
-                <div className={`${text} font-bold text-base`}>{formatDate(mockEvent.eventDate)}</div>
-              </div>
-            </div>
+                {/* Quick Info Cards - 4 Cards: 2x2 Grid, Purple/Blue Colors */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+                  {/* Date */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <Calendar className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Date</div>
+                      <div className={`${text} font-bold text-base`}>{formatDate(mockEvent.eventDate)}</div>
+                    </div>
+                  </div>
 
-            {/* Time */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-5 h-5 text-purple-400" />
-              </div>
-              <div className="min-w-0">
-                <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Start Time</div>
-                <div className={`${text} font-bold text-base`}>{formatTime(mockEvent.eventDate)}</div>
-              </div>
-            </div>
+                  {/* Time */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/5 to-purple-500/10 hover:from-purple-500/10 hover:to-purple-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Start Time</div>
+                      <div className={`${text} font-bold text-base`}>{formatTime(mockEvent.eventDate)}</div>
+                    </div>
+                  </div>
 
-            {/* Venue */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-5 h-5 text-blue-400" />
-              </div>
-              <div className="min-w-0">
-                <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Venue</div>
-                <div className={`${text} font-bold text-base truncate`}>{mockEvent.venue.name}</div>
-              </div>
-            </div>
+                  {/* Venue */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Venue</div>
+                      <div className={`${text} font-bold text-base truncate`}>{mockEvent.venue.name}</div>
+                    </div>
+                  </div>
 
-            {/* Age Restriction */}
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                <Users className="w-5 h-5 text-blue-400" />
+                  {/* Age Restriction */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-blue-500/10 hover:from-blue-500/10 hover:to-blue-500/15 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                      <Users className="w-5 h-5 text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Age</div>
+                      <div className={`${text} font-bold text-base`}>18+</div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="min-w-0">
-                <div className={`${textSecondary} text-xs font-medium mb-0.5`}>Age</div>
-                <div className={`${text} font-bold text-base`}>18+</div>
-              </div>
-            </div>
-          </div>
 
               {/* Trust Signals Bar - Desktop Only */}
               <div className={`hidden lg:flex flex-wrap gap-4 p-4 ${isDarkMode ? 'bg-purple-900/20 border-purple-500/20' : 'bg-purple-50 border-purple-200'} rounded-xl border`}>

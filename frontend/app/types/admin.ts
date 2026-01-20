@@ -223,3 +223,65 @@ export interface AdminActivityLog {
   ipAddress: string;
   createdAt: string;
 }
+
+// User Activity Tracking
+export interface UserActivity {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  type: 'login' | 'logout' | 'purchase' | 'ticket' | 'profile' | 'security' | 'suspicious';
+  action: string;
+  description: string;
+  timestamp: string;
+  ipAddress: string;
+  location: string;
+  device: 'Desktop' | 'Mobile' | 'Tablet';
+  browser: string;
+  os: string;
+  success: boolean;
+  flagged?: boolean;
+  severity?: 'low' | 'medium' | 'high';
+  amount?: number;
+}
+
+// User Detail (extends AdminUser with additional info)
+export interface UserDetail extends AdminUser {
+  phone?: string;
+  location?: string;
+  joinedDate: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  twoFactorEnabled: boolean;
+  orders: {
+    id: string;
+    eventName: string;
+    eventDate: string;
+    quantity: number;
+    amount: number;
+    status: 'completed' | 'pending' | 'cancelled' | 'refunded';
+    purchasedAt: string;
+  }[];
+  favoriteEvents: {
+    id: string;
+    name: string;
+    date: string;
+    image?: string;
+  }[];
+  activityLog: {
+    id: string;
+    action: string;
+    timestamp: string;
+    ipAddress: string;
+    device: string;
+  }[];
+  paymentMethods: {
+    id: string;
+    type: 'card' | 'paypal';
+    last4?: string;
+    brand?: string;
+    expiryMonth?: number;
+    expiryYear?: number;
+    isDefault: boolean;
+  }[];
+}

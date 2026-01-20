@@ -29,7 +29,10 @@ import {
   BarChart3,
   ArrowUpDown,
   X,
-  Settings
+  Settings,
+  UserPlus,
+  Sparkles,
+  Archive,
 } from 'lucide-react';
 
 export default function ManageEventsPage() {
@@ -38,8 +41,9 @@ export default function ManageEventsPage() {
   const [sortBy, setSortBy] = useState('date');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<number[]>([]);
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
 
-  // Mock events data
+  // Mock events data - ADDED guestListEnabled property
   const events = [
     {
       id: 1,
@@ -54,7 +58,9 @@ export default function ManageEventsPage() {
       views: 12453,
       image: '/event-placeholder.jpg',
       category: 'Music',
-      lastUpdated: '2 hours ago'
+      lastUpdated: '2 hours ago',
+      guestListEnabled: true, // NEW
+      guestCount: 25, // NEW
     },
     {
       id: 2,
@@ -69,7 +75,9 @@ export default function ManageEventsPage() {
       views: 3241,
       image: '/event-placeholder.jpg',
       category: 'Music',
-      lastUpdated: '1 day ago'
+      lastUpdated: '1 day ago',
+      guestListEnabled: false, // NEW
+      guestCount: 0, // NEW
     },
     {
       id: 3,
@@ -84,7 +92,9 @@ export default function ManageEventsPage() {
       views: 0,
       image: '/event-placeholder.jpg',
       category: 'Comedy',
-      lastUpdated: '3 days ago'
+      lastUpdated: '3 days ago',
+      guestListEnabled: false, // NEW
+      guestCount: 0, // NEW
     },
     {
       id: 4,
@@ -99,7 +109,9 @@ export default function ManageEventsPage() {
       views: 28934,
       image: '/event-placeholder.jpg',
       category: 'Conference',
-      lastUpdated: '1 week ago'
+      lastUpdated: '1 week ago',
+      guestListEnabled: true, // NEW
+      guestCount: 50, // NEW
     },
     {
       id: 5,
@@ -114,7 +126,9 @@ export default function ManageEventsPage() {
       views: 5643,
       image: '/event-placeholder.jpg',
       category: 'Food & Drink',
-      lastUpdated: '2 days ago'
+      lastUpdated: '2 days ago',
+      guestListEnabled: true, // NEW
+      guestCount: 12, // NEW
     },
     {
       id: 6,
@@ -129,7 +143,9 @@ export default function ManageEventsPage() {
       views: 7234,
       image: '/event-placeholder.jpg',
       category: 'Arts',
-      lastUpdated: '2 weeks ago'
+      lastUpdated: '2 weeks ago',
+      guestListEnabled: false, // NEW
+      guestCount: 0, // NEW
     }
   ];
 
@@ -193,6 +209,33 @@ export default function ManageEventsPage() {
   const handleBulkAction = (action: string) => {
     console.log(`Bulk action: ${action} on events:`, selectedEvents);
     // Implement bulk actions here
+  };
+
+  const handleDropdownAction = (eventId: number, action: string) => {
+    setOpenDropdown(null);
+    console.log(`Action: ${action} on event ${eventId}`);
+    
+    switch (action) {
+      case 'duplicate':
+        alert(`Duplicating event ${eventId}`);
+        break;
+      case 'archive':
+        alert(`Archiving event ${eventId}`);
+        break;
+      case 'delete':
+        if (confirm('Are you sure you want to delete this event?')) {
+          alert(`Deleting event ${eventId}`);
+        }
+        break;
+      case 'settings':
+        alert(`Opening settings for event ${eventId}`);
+        break;
+    }
+  };
+
+  const handlePublishDraft = (eventId: number) => {
+    alert(`Publishing draft event ${eventId}`);
+    // TODO: Call API to publish event
   };
 
   return (
@@ -342,6 +385,13 @@ export default function ManageEventsPage() {
                           {event.name}
                         </h3>
                         {getStatusBadge(event.status)}
+                        {/* Guest List Badge - NEW */}
+                        {event.guestListEnabled && (
+                          <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+                            <UserPlus className="w-3 h-3" />
+                            {event.guestCount} Guests
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-3 text-gray-400 text-sm mb-2">
                         <span className="flex items-center gap-1">
@@ -416,33 +466,112 @@ export default function ManageEventsPage() {
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
+                  {/* Action Buttons - UPDATED */}
                   <div className="flex flex-wrap gap-2">
+                    {/* Publish Button for Drafts - NEW */}
+                    {event.status === 'draft' && (
+                      <button
+                        onClick={() => handlePublishDraft(event.id)}
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Publish
+                      </button>
+                    )}
+                    
                     <Link href={`/organizer/manage-events/${event.id}/edit`}>
                       <button className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <Edit className="w-4 h-4" />
                         Edit Event
                       </button>
                     </Link>
+                    
+                    {/* Guest List Button - NEW (only show if enabled) */}
+                    {event.guestListEnabled && (
+                      <Link href={`/organizer/manage-events/${event.id}/guest-list`}>
+                        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                          <UserPlus className="w-4 h-4" />
+                          Guest List
+                        </button>
+                      </Link>
+                    )}
+                    
                     <Link href={`/events/${event.id}`}>
                       <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <Eye className="w-4 h-4" />
                         Preview
                       </button>
                     </Link>
+                    
                     <Link href={`/organizer/analytics/${event.id}`}>
                       <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <BarChart3 className="w-4 h-4" />
                         Analytics
                       </button>
                     </Link>
+                    
                     <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                       <Share2 className="w-4 h-4" />
                       Share
                     </button>
-                    <button className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                    
+                    {/* More Options Dropdown - UPDATED */}
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenDropdown(openDropdown === event.id ? null : event.id)}
+                        className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openDropdown === event.id && (
+                        <>
+                          {/* Backdrop to close dropdown when clicking outside */}
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenDropdown(null)}
+                          />
+                          
+                          {/* Dropdown content */}
+                          <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'duplicate')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Copy className="w-4 h-4 text-gray-400" />
+                              Duplicate Event
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'settings')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Settings className="w-4 h-4 text-gray-400" />
+                              Event Settings
+                            </button>
+                            
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'archive')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Archive className="w-4 h-4 text-gray-400" />
+                              Archive Event
+                            </button>
+                            
+                            <div className="border-t border-gray-700"></div>
+                            
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'delete')}
+                              className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Event
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
