@@ -67,3 +67,8 @@ VSWorkspaceState.json
 **/.env
 **/.env.*
 !**/.env.example
+
+# Deploy credentials
+federated.json
+**/federated.json
+

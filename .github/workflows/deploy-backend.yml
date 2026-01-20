@@ -2,11 +2,15 @@ name: Deploy Backend (NestJS) to Azure Web App
 
 on:
   push:
-    branches: [ "azuredeploy" ]   # change to feature/deploy if you want
+    branches: [ "azuredeploy" ]
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
   workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build-and-deploy:
@@ -17,8 +21,7 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -27,7 +30,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install
+      - name: Install (dev + prod)
         run: npm ci
 
       - name: Prisma generate
@@ -36,12 +39,18 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Package only what App Service needs at runtime.
-      # IMPORTANT: include dist + prisma + package files (no node_modules).
+      - name: Install production deps
+        run: npm ci --omit=dev
+
       - name: Zip artifact
         run: |
           cd ..
-          zip -r backend.zip backend/dist backend/prisma backend/package.json backend/package-lock.json
+          zip -r backend.zip \
+            backend/dist \
+            backend/prisma \
+            backend/package.json \
+            backend/package-lock.json \
+            backend/node_modules
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
