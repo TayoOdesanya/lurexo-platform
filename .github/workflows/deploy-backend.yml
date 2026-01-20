@@ -40,7 +40,6 @@ jobs:
 
       - name: Zip artifact
         run: |
-          cd backend
           zip -r ../backend.zip dist prisma package.json package-lock.json
 
       - name: Azure Login (OIDC)
