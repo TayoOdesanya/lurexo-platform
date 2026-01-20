@@ -16,40 +16,22 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: frontend
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install
+      - name: Install dependencies
+        working-directory: frontend
         run: npm ci
 
       - name: Build
+        working-directory: frontend
         run: npm run build
-
-      # Important: App Service needs production deps to run `next start`
-      - name: Install production deps
-        run: npm ci --omit=dev
-
-      - name: Zip artifact
-        run: |
-          cd ..
-          zip -r frontend.zip \
-            frontend/.next \
-            frontend/public \
-            frontend/package.json \
-            frontend/package-lock.json \
-            frontend/next.config.* \
-            frontend/node_modules
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -57,6 +39,13 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Zip artifact
+        run: |
+          zip -r frontend.zip frontend \
+            -x "frontend/node_modules/*" \
+               "frontend/.next/cache/*" \
+               "frontend/.env.local"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
