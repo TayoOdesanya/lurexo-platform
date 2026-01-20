@@ -25,39 +25,39 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies (backend)
-        working-directory: backend
+      # 🔹 IMPORTANT: install deps at repo root (workspace mode)
+      - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
 
-      - name: Verify node_modules exists (backend)
-        working-directory: backend
+      - name: Verify root node_modules exists
         run: |
-          echo "PWD=$(pwd)"
+          pwd
           ls -la
-          test -d node_modules || (echo "node_modules not found in backend after npm install" && exit 1)
-          node -v
-          npm -v
+          test -d node_modules || (echo "node_modules not found at repo root" && exit 1)
 
       - name: Prisma generate (backend)
         working-directory: backend
         run: npx prisma generate
 
-      - name: Build (backend)
+      - name: Build backend
         working-directory: backend
         run: npm run build
 
-      - name: Verify dist output (backend)
+      - name: Verify backend dist output
         working-directory: backend
         run: |
           test -f dist/main.js || (echo "dist/main.js not found" && exit 1)
           ls -la dist | head
 
-      - name: Create deployment zip (includes backend/node_modules)
+      # 🔹 Zip backend + ROOT node_modules
+      - name: Create deployment zip
         run: |
           rm -f backend.zip
-          cd backend
-          zip -r ../backend.zip dist prisma package.json node_modules
-          cd ..
+          zip -r backend.zip \
+            backend/dist \
+            backend/prisma \
+            backend/package.json \
+            node_modules
           ls -lh backend.zip
 
       - name: Azure Login (OIDC)
