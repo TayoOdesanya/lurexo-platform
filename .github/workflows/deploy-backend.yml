@@ -16,10 +16,6 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
-    defaults:
-      run:
-        working-directory: backend
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,24 +25,42 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
+      - name: Install dependencies (backend)
+        working-directory: backend
         run: npm ci
 
-      - name: Prisma generate
+      - name: Verify node_modules exists (backend)
+        working-directory: backend
+        run: |
+          echo "PWD=$(pwd)"
+          ls -la
+          test -d node_modules || (echo "node_modules not found in backend after npm ci" && exit 1)
+          node -v
+          npm -v
+
+      - name: Prisma generate (backend)
+        working-directory: backend
         run: npx prisma generate
 
-      - name: Build
+      - name: Build (backend)
+        working-directory: backend
         run: npm run build
 
-      - name: Verify build output
+      - name: Verify dist output (backend)
+        working-directory: backend
         run: |
           test -f dist/main.js || (echo "dist/main.js not found" && exit 1)
-          test -d node_modules || (echo "node_modules not found" && exit 1)
+          ls -la dist | head
 
-      - name: Zip artifact (includes node_modules)
+      - name: Create deployment zip (includes backend/node_modules)
+        working-directory: .
         run: |
-          rm -f ../backend.zip
+          rm -f backend.zip
+          # Zip from repo root so Azure gets backend folder contents at wwwroot root
+          cd backend
           zip -r ../backend.zip dist prisma package.json package-lock.json node_modules
+          cd ..
+          ls -lh backend.zip
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
