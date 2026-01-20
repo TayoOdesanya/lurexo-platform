@@ -27,14 +27,14 @@ jobs:
 
       - name: Install dependencies (backend)
         working-directory: backend
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Verify node_modules exists (backend)
         working-directory: backend
         run: |
           echo "PWD=$(pwd)"
           ls -la
-          test -d node_modules || (echo "node_modules not found in backend after npm ci" && exit 1)
+          test -d node_modules || (echo "node_modules not found in backend after npm install" && exit 1)
           node -v
           npm -v
 
@@ -53,12 +53,10 @@ jobs:
           ls -la dist | head
 
       - name: Create deployment zip (includes backend/node_modules)
-        working-directory: .
         run: |
           rm -f backend.zip
-          # Zip from repo root so Azure gets backend folder contents at wwwroot root
           cd backend
-          zip -r ../backend.zip dist prisma package.json package-lock.json node_modules
+          zip -r ../backend.zip dist prisma package.json node_modules
           cd ..
           ls -lh backend.zip
 
