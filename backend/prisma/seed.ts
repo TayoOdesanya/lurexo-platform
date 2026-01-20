@@ -131,7 +131,7 @@ async function main() {
     summerFestival1: "summer-festival-1.jpg",
     summerFestival2: "summer-festival-2.jpg",
     summerFestival3: "summer-festival-3.jpg",
-    jazzNightHero: "jazz-night-hero.jpg",
+    jazzNightHero: "jazzy-night-hero.jpg",
     jazzNight1: "jazz-night-1.jpg",
     jazzNight2: "jazz-night-2.jpg",
     jazzNight3: "jazz-night-3.jpg",
