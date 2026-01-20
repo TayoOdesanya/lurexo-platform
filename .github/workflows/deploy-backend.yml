@@ -2,7 +2,7 @@ name: Deploy Backend (NestJS) to Azure Web App
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "azuredeploy" ]   # change to feature/deploy if you want
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
@@ -36,16 +36,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Ensure App Service starts correct file:
-      # Your package.json says: node dist/src/main.js
+      # Package only what App Service needs at runtime.
+      # IMPORTANT: include dist + prisma + package files (no node_modules).
       - name: Zip artifact
         run: |
           cd ..
-          zip -r backend.zip backend/dist backend/package.json backend/package-lock.json backend/prisma
+          zip -r backend.zip backend/dist backend/prisma backend/package.json backend/package-lock.json
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: lurexo-api
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_API }}
           package: backend.zip
