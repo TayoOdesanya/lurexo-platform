@@ -33,6 +33,11 @@ jobs:
 
       - name: Build (frontend)
         working-directory: frontend
+        env:
+          # IMPORTANT: client-side code bakes this in at build time
+          NEXT_PUBLIC_API_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
+          # Optional (only if your code references it)
+          NEXT_PUBLIC_API_BASE_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
         run: npm run build
 
       - name: Locate standalone server.js (from repo root)
@@ -85,7 +90,7 @@ jobs:
           cd ..
 
           ls -lh frontend.zip
-          unzip -l frontend.zip | head -n 80
+          unzip -l frontend.zip | head -n 120
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
