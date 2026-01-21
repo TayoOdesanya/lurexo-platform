@@ -31,7 +31,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      # Monorepo/workspaces: install at repo root (so frontend can resolve deps)
+      # Install deps at repo root (monorepo layout)
       - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
 
@@ -39,29 +39,7 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Locate standalone server.js (from repo root)
-        run: |
-          set -e
-
-          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Ensure next.config.ts has: output: 'standalone'" && exit 1)
-
-          SERVER_JS="$(find frontend/.next/standalone -type f -name server.js | head -n 1)"
-          if [ -z "$SERVER_JS" ]; then
-            echo "server.js not found anywhere under frontend/.next/standalone"
-            echo "Dumping standalone tree (top levels):"
-            find frontend/.next/standalone -maxdepth 6 -type f | head -n 300
-            exit 1
-          fi
-
-          echo "Found server.js at: $SERVER_JS"
-          SERVER_DIR="$(dirname "$SERVER_JS")"
-
-          echo "SERVER_DIR=$SERVER_DIR" >> $GITHUB_ENV
-          echo "SERVER_JS=$SERVER_JS" >> $GITHUB_ENV
-
-      # Package the standalone output so server.js ends up at /home/site/wwwroot/server.js
-      # IMPORTANT: Do NOT include repo root node_modules (keeps the zip small and avoids conflicts)
-      - name: Create deployment zip (standalone)
+      - name: Create deployment zip (Next.js standalone)
         run: |
           set -e
 
@@ -69,17 +47,33 @@ jobs:
           rm -rf _deploy
           mkdir -p _deploy
 
-          echo "Using SERVER_DIR=${SERVER_DIR}"
-          echo "Using SERVER_JS=${SERVER_JS}"
+          STANDALONE_ROOT="frontend/.next/standalone"
+          test -d "$STANDALONE_ROOT" || (echo "Missing $STANDALONE_ROOT — ensure output: 'standalone'" && exit 1)
 
-          test -n "${SERVER_DIR}" || (echo "SERVER_DIR not set" && exit 1)
-          test -f "${SERVER_JS}" || (echo "SERVER_JS not found at ${SERVER_JS}" && exit 1)
+          SERVER_JS="$(find "$STANDALONE_ROOT" -type f -name server.js | head -n 1)"
+          test -n "$SERVER_JS" || (echo "server.js not found under $STANDALONE_ROOT" && exit 1)
 
-          # Copy the standalone bundle root (folder containing server.js) into deploy root
-          # This includes the minimal node_modules needed for runtime
-          cp -R "${SERVER_DIR}/"* _deploy/
+          SERVER_DIR="$(dirname "$SERVER_JS")"
 
-          # Next runtime expects static assets at .next/static
+          echo "Standalone root: $STANDALONE_ROOT"
+          echo "Server.js found at: $SERVER_JS"
+          echo "Server dir: $SERVER_DIR"
+
+          # Copy app bundle so server.js is at zip root
+          cp -R "$SERVER_DIR/"* _deploy/
+
+          # Copy standalone node_modules (preferred location)
+          if [ -d "$STANDALONE_ROOT/node_modules" ]; then
+            cp -R "$STANDALONE_ROOT/node_modules" _deploy/node_modules
+          elif [ -d "$SERVER_DIR/node_modules" ]; then
+            cp -R "$SERVER_DIR/node_modules" _deploy/node_modules
+          else
+            echo "No node_modules found in standalone output"
+            find "$STANDALONE_ROOT" -maxdepth 3 -type d
+            exit 1
+          fi
+
+          # Static assets
           mkdir -p _deploy/.next
           cp -R frontend/.next/static _deploy/.next/static
 
@@ -88,11 +82,10 @@ jobs:
             cp -R frontend/public _deploy/public
           fi
 
-          # Sanity check
-          test -f _deploy/server.js || (echo "Expected _deploy/server.js missing" && exit 1)
-          test -d _deploy/node_modules || (echo "Expected _deploy/node_modules missing (standalone should include it)" && exit 1)
+          # Sanity checks
+          test -f _deploy/server.js || (echo "server.js missing at deploy root" && exit 1)
+          test -d _deploy/node_modules || (echo "node_modules missing at deploy root" && exit 1)
 
-          # Zip so server.js is at zip root => /home/site/wwwroot/server.js
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
@@ -107,7 +100,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Avoid SCM/management-operation collision
+      # Avoid SCM restart collision
       - name: Wait for SCM to settle
         run: sleep 30
 
