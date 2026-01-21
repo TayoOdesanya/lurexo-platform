@@ -20,8 +20,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # NOTE: Do NOT enable npm caching here unless frontend/package-lock.json exists.
-      # Your repo currently does NOT have frontend/package-lock.json, so caching fails.
+      # Don't enable npm cache unless frontend/package-lock.json exists.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -36,20 +35,21 @@ jobs:
         run: npm run build
 
       - name: Verify standalone build output (find server.js)
-        working-directory: frontend
         run: |
-          test -d .next/standalone || (echo ".next/standalone not found. Did you set output: 'standalone' in next.config.ts?" && exit 1)
+          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Did you set output: 'standalone' in next.config.ts?" && exit 1)
 
-          echo "Searching for server.js under .next/standalone..."
-          find .next/standalone -maxdepth 6 -name server.js -print
+          echo "Searching for server.js under frontend/.next/standalone..."
+          find frontend/.next/standalone -maxdepth 8 -name server.js -print
 
-          SERVER_JS_PATH="$(find .next/standalone -maxdepth 6 -name server.js -print -quit)"
-          test -n "$SERVER_JS_PATH" || (echo "server.js not found anywhere under .next/standalone" && exit 1)
+          SERVER_JS_PATH="$(find frontend/.next/standalone -maxdepth 8 -name server.js -print -quit)"
+          test -n "$SERVER_JS_PATH" || (echo "server.js not found anywhere under frontend/.next/standalone" && exit 1)
 
-          echo "Found: $SERVER_JS_PATH"
-          echo "SERVER_DIR=$(dirname "$SERVER_JS_PATH")" >> $GITHUB_ENV
+          SERVER_DIR="$(dirname "$SERVER_JS_PATH")"
 
-      # Package the standalone output so server.js ends up at /home/site/wwwroot/server.js
+          echo "Found server.js at: $SERVER_JS_PATH"
+          echo "SERVER_DIR=$SERVER_DIR" >> $GITHUB_ENV
+
+      # Package standalone so server.js ends up at /home/site/wwwroot/server.js
       - name: Create deployment zip (standalone)
         run: |
           rm -f frontend.zip
@@ -57,11 +57,12 @@ jobs:
           mkdir -p _deploy
 
           echo "Using SERVER_DIR=$SERVER_DIR"
+          test -d "$SERVER_DIR" || (echo "SERVER_DIR does not exist: $SERVER_DIR" && exit 1)
 
-          # Copy standalone runtime folder contents (where server.js actually is) to zip root
+          # Copy the folder that contains server.js to the deploy root
           cp -R "$SERVER_DIR"/* _deploy/
 
-          # Copy static assets where Next expects them
+          # Copy static assets where Next expects them at runtime
           mkdir -p _deploy/.next
           cp -R frontend/.next/static _deploy/.next/static
 
@@ -71,8 +72,9 @@ jobs:
           fi
 
           # Sanity check: server.js must exist at deploy root
-          test -f _deploy/server.js || (echo "Expected _deploy/server.js but not found. Packaging logic may need adjusting." && exit 1)
+          test -f _deploy/server.js || (echo "Expected _deploy/server.js but not found after copy" && exit 1)
 
+          # Zip the contents of _deploy so server.js is at zip root
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
