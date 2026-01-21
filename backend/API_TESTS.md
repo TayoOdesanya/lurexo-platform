@@ -1,6 +1,6 @@
 # Lurexo API Testing Guide
 
-Base URL: `http://localhost:3001/api`
+Base URL: `https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api`
 
 ---
 
@@ -121,7 +121,7 @@ Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
 
 ### Register:
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@lurexo.com",
@@ -134,7 +134,7 @@ curl -X POST http://localhost:3001/api/auth/register \
 
 ### Login:
 ```bash
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@lurexo.com",
@@ -144,7 +144,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 
 ### Get Current User:
 ```bash
-curl -X GET http://localhost:3001/api/auth/me \
+curl -X GET https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/me \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 

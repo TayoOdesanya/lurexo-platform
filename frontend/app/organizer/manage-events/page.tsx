@@ -28,7 +28,7 @@ import { apiRequestAuth } from '../../../lib/api';
 import { resolveEventImageSrc } from '@/lib/images';
 
 const API_BASE_URL =
-  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api').replace(/\/$/, '');
+  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api').replace(/\/$/, '');
 
 
 function getAccessTokenClient(): string | null {

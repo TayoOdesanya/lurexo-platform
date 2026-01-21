@@ -89,7 +89,7 @@ useEffect(() => {
 
   (async () => {
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
       const res = await fetch(`${base}/events/${eventId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',

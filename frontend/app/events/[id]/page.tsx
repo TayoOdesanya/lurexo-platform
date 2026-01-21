@@ -100,7 +100,7 @@ useEffect(() => {
   setLoading(true);
   setError(null);
 
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
 
   fetch(`${base}/events/${id}`)
     .then((res) => {
@@ -239,7 +239,7 @@ useEffect(() => {
                 <p className="text-red-300 font-semibold mb-2">Connection Error</p>
                 <p className="text-gray-200">
                   Couldn’t load this event. Make sure the backend is running on{' '}
-                  <span className="font-mono">http://localhost:3001/api</span>.
+                  <span className="font-mono">https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api</span>.
                 </p>
               </div>
             </div>

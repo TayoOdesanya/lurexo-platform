@@ -269,7 +269,7 @@ export default function EventPreviewPage() {
         setLoading(true);
         setError(null);
 
-        const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+        const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
         const res = await fetch(`${base}/events/${id}`, { cache: 'no-store' });
         
         if (!res.ok) throw new Error('Failed to fetch event');
@@ -342,7 +342,7 @@ export default function EventPreviewPage() {
 
   const totalPrice = selectedTier ? (selectedTier.price + selectedTier.serviceFee) * quantity : 0;
 
-const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api';
+const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
 
 async function saveDraft() {
   if (!id) return;

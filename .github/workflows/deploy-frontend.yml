@@ -37,6 +37,9 @@ jobs:
 
       - name: Build (frontend)
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
+          NEXT_PUBLIC_API_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net        
         run: npm run build
 
       - name: Create deployment zip (Next.js standalone)

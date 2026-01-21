@@ -205,7 +205,7 @@ useEffect(() => {
                 ) : error ? (
                     <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 text-center">
                         <p className="text-red-400 font-semibold mb-2">Connection Error</p>
-                        <p className={textSecondary}>Make sure the backend is running on http://localhost:3001/api</p>
+                        <p className={textSecondary}>Make sure the backend is running on https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api</p>
                     </div>
                 ) : filteredEvents.length === 0 ? (
                     <div className="text-center py-20">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/$/, "");
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api").replace(/\/$/, "");
 
 export async function GET() {
   const upstream = await fetch(`${API_BASE_URL}/events`, { cache: "no-store" });

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL || // fallback to older name
-  "http://localhost:3001/api"
+  "https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api"
 ).replace(/\/$/, "");
 
 function getBearerToken(req: Request): string {

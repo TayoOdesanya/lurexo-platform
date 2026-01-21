@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, ReactNode } fr
 import { useRouter } from 'next/navigation';
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:3001/api';
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
 
 interface User {
   id: string;
