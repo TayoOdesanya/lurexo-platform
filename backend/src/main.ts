@@ -6,10 +6,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS
-  app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  });
+app.enableCors({
+  origin: [
+    "https://lurexo-web-fmb8g0cte0h5ame7.uksouth-01.azurewebsites.net",
+    "http://localhost:3000",
+  ],
+  credentials: true,
+});
 
   // Global validation pipe
   app.useGlobalPipes(
