@@ -49,6 +49,12 @@ jobs:
           test -f dist/main.js || (echo "dist/main.js not found" && exit 1)
           ls -la dist | head
 
+      - name: Prisma migrate deploy (Azure DB)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+
       # 🔹 Zip backend + ROOT node_modules
       - name: Create deployment zip
         run: |
