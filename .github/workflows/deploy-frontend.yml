@@ -12,6 +12,10 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: lurexo-web-frontend
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -27,38 +31,40 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      # Monorepo/workspaces: install at repo root
+      # Monorepo/workspaces: install at repo root (so frontend can resolve deps)
       - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
 
       - name: Build (frontend)
         working-directory: frontend
-        env:
-          # IMPORTANT: client-side code bakes this in at build time
-          NEXT_PUBLIC_API_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
-          # Optional (only if your code references it)
-          NEXT_PUBLIC_API_BASE_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
         run: npm run build
 
       - name: Locate standalone server.js (from repo root)
         run: |
-          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Ensure next.config.ts has output: 'standalone'" && exit 1)
+          set -e
+
+          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Ensure next.config.ts has: output: 'standalone'" && exit 1)
 
           SERVER_JS="$(find frontend/.next/standalone -type f -name server.js | head -n 1)"
           if [ -z "$SERVER_JS" ]; then
             echo "server.js not found anywhere under frontend/.next/standalone"
             echo "Dumping standalone tree (top levels):"
-            find frontend/.next/standalone -maxdepth 5 -type f | head -n 300
+            find frontend/.next/standalone -maxdepth 6 -type f | head -n 300
             exit 1
           fi
 
           echo "Found server.js at: $SERVER_JS"
           SERVER_DIR="$(dirname "$SERVER_JS")"
+
           echo "SERVER_DIR=$SERVER_DIR" >> $GITHUB_ENV
           echo "SERVER_JS=$SERVER_JS" >> $GITHUB_ENV
 
-      - name: Create deployment zip (standalone + root node_modules)
+      # Package the standalone output so server.js ends up at /home/site/wwwroot/server.js
+      # IMPORTANT: Do NOT include repo root node_modules (keeps the zip small and avoids conflicts)
+      - name: Create deployment zip (standalone)
         run: |
+          set -e
+
           rm -f frontend.zip
           rm -rf _deploy
           mkdir -p _deploy
@@ -70,6 +76,7 @@ jobs:
           test -f "${SERVER_JS}" || (echo "SERVER_JS not found at ${SERVER_JS}" && exit 1)
 
           # Copy the standalone bundle root (folder containing server.js) into deploy root
+          # This includes the minimal node_modules needed for runtime
           cp -R "${SERVER_DIR}/"* _deploy/
 
           # Next runtime expects static assets at .next/static
@@ -81,10 +88,11 @@ jobs:
             cp -R frontend/public _deploy/public
           fi
 
-          # Ensure runtime can require('next') in Azure
-          cp -R node_modules _deploy/node_modules
+          # Sanity check
+          test -f _deploy/server.js || (echo "Expected _deploy/server.js missing" && exit 1)
+          test -d _deploy/node_modules || (echo "Expected _deploy/node_modules missing (standalone should include it)" && exit 1)
 
-          # Zip so server.js ends up at /home/site/wwwroot/server.js
+          # Zip so server.js is at zip root => /home/site/wwwroot/server.js
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
@@ -98,6 +106,10 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Avoid SCM/management-operation collision
+      - name: Wait for SCM to settle
+        run: sleep 30
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
