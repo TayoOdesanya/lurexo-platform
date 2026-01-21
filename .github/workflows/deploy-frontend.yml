@@ -20,49 +20,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Don't enable npm cache unless frontend/package-lock.json exists.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          # Your lockfile lives at repo root (monorepo/workspaces), so cache that
+          cache: "npm"
+          cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (frontend)
-        working-directory: frontend
+      # IMPORTANT: install from repo root so the workspace/hoisted deps (incl next) exist
+      - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
+
+      - name: Verify root node_modules exists
+        run: |
+          test -d node_modules || (echo "node_modules not found at repo root" && exit 1)
 
       - name: Build (frontend)
         working-directory: frontend
         run: npm run build
 
-      - name: Verify standalone build output (find server.js)
+      - name: Verify standalone build output
+        working-directory: frontend
         run: |
-          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Did you set output: 'standalone' in next.config.ts?" && exit 1)
+          test -d .next/standalone || (echo ".next/standalone not found. Ensure next.config.ts has: output: 'standalone'" && exit 1)
+          test -f .next/standalone/server.js || (echo "server.js not found in .next/standalone" && exit 1)
+          echo "Standalone output OK"
+          ls -la .next/standalone | head
 
-          echo "Searching for server.js under frontend/.next/standalone..."
-          find frontend/.next/standalone -maxdepth 8 -name server.js -print
-
-          SERVER_JS_PATH="$(find frontend/.next/standalone -maxdepth 8 -name server.js -print -quit)"
-          test -n "$SERVER_JS_PATH" || (echo "server.js not found anywhere under frontend/.next/standalone" && exit 1)
-
-          SERVER_DIR="$(dirname "$SERVER_JS_PATH")"
-
-          echo "Found server.js at: $SERVER_JS_PATH"
-          echo "SERVER_DIR=$SERVER_DIR" >> $GITHUB_ENV
-
-      # Package standalone so server.js ends up at /home/site/wwwroot/server.js
-      - name: Create deployment zip (standalone)
+      # Package: standalone server.js at zip root + static assets + PUBLIC + ROOT node_modules (so require('next') works)
+      - name: Create deployment zip (standalone + root node_modules)
         run: |
           rm -f frontend.zip
           rm -rf _deploy
           mkdir -p _deploy
 
-          echo "Using SERVER_DIR=$SERVER_DIR"
-          test -d "$SERVER_DIR" || (echo "SERVER_DIR does not exist: $SERVER_DIR" && exit 1)
+          # Copy standalone server output to deploy root (puts server.js at /home/site/wwwroot/server.js)
+          cp -R frontend/.next/standalone/* _deploy/
 
-          # Copy the folder that contains server.js to the deploy root
-          cp -R "$SERVER_DIR"/* _deploy/
-
-          # Copy static assets where Next expects them at runtime
+          # Next runtime expects static at .next/static
           mkdir -p _deploy/.next
           cp -R frontend/.next/static _deploy/.next/static
 
@@ -71,18 +67,16 @@ jobs:
             cp -R frontend/public _deploy/public
           fi
 
-          # Sanity check: server.js must exist at deploy root
-          test -f _deploy/server.js || (echo "Expected _deploy/server.js but not found after copy" && exit 1)
+          # Hoisted/workspace deps (includes next) — REQUIRED for server.js require('next')
+          cp -R node_modules _deploy/node_modules
 
-          # Zip the contents of _deploy so server.js is at zip root
+          # Create zip from the CONTENTS of _deploy (not the folder)
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
 
-          echo "Zip created:"
           ls -lh frontend.zip
-          echo "Zip contents (top):"
-          unzip -l frontend.zip | head -n 80
+          unzip -l frontend.zip | head -n 60
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
