@@ -2,7 +2,7 @@ name: Deploy Frontend (Next.js) to Azure Web App
 
 on:
   push:
-    branches: [ "azuredeploy" ]
+    branches: ["azuredeploy"]
     paths:
       - "frontend/**"
       - ".github/workflows/deploy-frontend.yml"
@@ -25,13 +25,35 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
+      - name: Install dependencies (frontend)
         working-directory: frontend
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      - name: Build
+      - name: Build (frontend)
         working-directory: frontend
         run: npm run build
+
+      - name: Verify Next build output
+        working-directory: frontend
+        run: |
+          test -d .next || (echo ".next not found" && exit 1)
+          ls -la .next | head
+
+      # Zip from inside /frontend so package.json ends up at wwwroot root
+      - name: Create deployment zip (includes node_modules)
+        run: |
+          rm -f frontend.zip
+          cd frontend
+          zip -r ../frontend.zip \
+            .next \
+            public \
+            package.json \
+            package-lock.json \
+            next.config.* \
+            node_modules \
+            -x ".next/cache/*"
+          cd ..
+          ls -lh frontend.zip
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -39,13 +61,6 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Zip artifact
-        run: |
-          zip -r frontend.zip frontend \
-            -x "frontend/node_modules/*" \
-               "frontend/.next/cache/*" \
-               "frontend/.env.local"
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
