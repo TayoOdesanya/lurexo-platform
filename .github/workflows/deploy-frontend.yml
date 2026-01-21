@@ -27,35 +27,31 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      # Install from repo root (monorepo/workspaces)
+      # Monorepo/workspaces: install at repo root
       - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
-
-      - name: Verify root node_modules exists
-        run: |
-          test -d node_modules || (echo "node_modules not found at repo root" && exit 1)
 
       - name: Build (frontend)
         working-directory: frontend
         run: npm run build
 
-      - name: Locate standalone server.js
-        working-directory: frontend
+      - name: Locate standalone server.js (from repo root)
         run: |
-          test -d .next/standalone || (echo ".next/standalone not found. Ensure next.config.ts has output: 'standalone'" && exit 1)
+          test -d frontend/.next/standalone || (echo "frontend/.next/standalone not found. Ensure next.config.ts has output: 'standalone'" && exit 1)
 
-          SERVER_JS="$(find .next/standalone -type f -name server.js | head -n 1)"
+          SERVER_JS="$(find frontend/.next/standalone -type f -name server.js | head -n 1)"
           if [ -z "$SERVER_JS" ]; then
-            echo "server.js not found anywhere under .next/standalone"
+            echo "server.js not found anywhere under frontend/.next/standalone"
             echo "Dumping standalone tree (top levels):"
-            find .next/standalone -maxdepth 4 -type f | head -n 200
+            find frontend/.next/standalone -maxdepth 5 -type f | head -n 300
             exit 1
           fi
 
           echo "Found server.js at: $SERVER_JS"
-          echo "SERVER_DIR=$(dirname "$SERVER_JS")" >> $GITHUB_ENV
+          SERVER_DIR="$(dirname "$SERVER_JS")"
+          echo "SERVER_DIR=$SERVER_DIR" >> $GITHUB_ENV
+          echo "SERVER_JS=$SERVER_JS" >> $GITHUB_ENV
 
-      # Package: copy the folder containing server.js to zip root
       - name: Create deployment zip (standalone + root node_modules)
         run: |
           rm -f frontend.zip
@@ -63,13 +59,15 @@ jobs:
           mkdir -p _deploy
 
           echo "Using SERVER_DIR=${SERVER_DIR}"
-          test -n "${SERVER_DIR}" || (echo "SERVER_DIR not set" && exit 1)
-          test -f "${SERVER_DIR}/server.js" || (echo "Expected server.js missing at ${SERVER_DIR}/server.js" && exit 1)
+          echo "Using SERVER_JS=${SERVER_JS}"
 
-          # Copy the standalone app bundle root (the folder that contains server.js)
+          test -n "${SERVER_DIR}" || (echo "SERVER_DIR not set" && exit 1)
+          test -f "${SERVER_JS}" || (echo "SERVER_JS not found at ${SERVER_JS}" && exit 1)
+
+          # Copy the standalone bundle root (folder containing server.js) into deploy root
           cp -R "${SERVER_DIR}/"* _deploy/
 
-          # Next runtime expects static at .next/static
+          # Next runtime expects static assets at .next/static
           mkdir -p _deploy/.next
           cp -R frontend/.next/static _deploy/.next/static
 
@@ -78,10 +76,10 @@ jobs:
             cp -R frontend/public _deploy/public
           fi
 
-          # Hoisted/workspace deps (includes next) for runtime require('next')
+          # Ensure runtime can require('next') in Azure
           cp -R node_modules _deploy/node_modules
 
-          # Zip contents so server.js ends up at /home/site/wwwroot/server.js
+          # Zip so server.js ends up at /home/site/wwwroot/server.js
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
