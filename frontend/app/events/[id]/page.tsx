@@ -118,18 +118,35 @@ export default function EventDetailPage() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(847);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // FIXED: Initialize with simple false values
   const [expandedSections, setExpandedSections] = useState({
     description: false,
-    venue: typeof window !== 'undefined' && window.innerWidth >= 1024,
+    venue: false,
     gallery: false,
     transport: false,
-    faq: typeof window !== 'undefined' && window.innerWidth >= 1024,
+    faq: false,
     comments: false,
     refund: false
   });
 
+  // FIXED: Use useEffect to set desktop defaults after mount
+  useEffect(() => {
+    setIsMounted(true);
+    
+    // Only expand certain sections on desktop after component mounts
+    if (window.innerWidth >= 1024) {
+      setExpandedSections(prev => ({
+        ...prev,
+        venue: true,
+        faq: true
+      }));
+    }
+  }, []);
+
   const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section as keyof typeof prev] }));
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
   const totalPrice = (selectedTier.price + selectedTier.serviceFee) * quantity;
@@ -165,7 +182,11 @@ export default function EventDetailPage() {
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
         break;
     }
+  };
 
+  const handleLikeToggle = () => {
+    setIsLiked(!isLiked);
+    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
   };
 
   // Theme classes
@@ -174,6 +195,20 @@ export default function EventDetailPage() {
   const text = isDarkMode ? 'text-white' : 'text-gray-900';
   const textSecondary = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const border = isDarkMode ? 'border-gray-800' : 'border-gray-200';
+
+  // Prevent hydration issues - don't render certain features until mounted
+  if (!isMounted) {
+    return (
+      <div className={`min-h-screen ${bg} flex items-center justify-center`}>
+        <div className="text-center">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <span className="text-white font-bold text-xl">L</span>
+          </div>
+          <p className={textSecondary}>Loading event...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen ${bg} pb-24 lg:pb-0`}>
@@ -214,7 +249,7 @@ export default function EventDetailPage() {
             {/* Right: Actions */}
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setIsLiked(!isLiked)}
+                onClick={handleLikeToggle}
                 className={`hidden sm:flex items-center space-x-2 px-4 py-2 rounded-full transition-all ${
                   isLiked ? 'bg-red-500/10 text-red-500' : `${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'} ${textSecondary}`
                 }`}
@@ -264,7 +299,7 @@ export default function EventDetailPage() {
         {/* Mobile Like & Share */}
         <div className="sm:hidden absolute top-4 right-4 flex flex-col space-y-2">
           <button
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleLikeToggle}
             className={`w-12 h-12 rounded-full backdrop-blur-md flex items-center justify-center ${
               isLiked ? 'bg-red-500/20 border border-red-500/50' : 'bg-black/40 border border-white/20'
             }`}

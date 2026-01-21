@@ -1289,3 +1289,69 @@ export const mockUserDetail: UserDetail = {
     },
   ],
 };
+
+// ============================================================================
+// PLATFORM SETTINGS DATA
+// ============================================================================
+
+export const mockPlatformSettings: PlatformSettings = {
+  commissionRate: 5,
+  maxTicketPrice: 10000,
+  minTicketPrice: 1,
+  resaleCap: 110,
+  autoApproveEvents: false,
+  maintenanceMode: false,
+  flaggedKeywords: ['crypto', 'investment', 'guaranteed returns', 'mlm', 'pyramid'],
+  platformName: 'Lurexo',
+  supportEmail: 'support@lurexo.com',
+  emailNotifications: true,
+  smsNotifications: false,
+};
+
+// Admin user accounts (for settings/admin management)
+export const mockAdminAccounts: AdminUserAccount[] = [
+  {
+    id: 'admin-001',
+    name: 'Tayo (You)',
+    email: 'admin@lurexo.com',
+    role: 'super_admin',
+    permissions: ['all'],
+    isActive: true,
+    createdAt: '2025-08-01T00:00:00Z',
+    lastLogin: '2026-01-20T15:30:00Z',
+    createdBy: 'system',
+  },
+  {
+    id: 'admin-002',
+    name: 'Sarah Johnson',
+    email: 'sarah@lurexo.com',
+    role: 'admin',
+    permissions: ['events', 'users', 'support'],
+    isActive: true,
+    createdAt: '2025-10-15T10:30:00Z',
+    lastLogin: '2026-01-19T14:20:00Z',
+    createdBy: 'admin-001',
+  },
+  {
+    id: 'admin-003',
+    name: 'Michael Chen',
+    email: 'michael@lurexo.com',
+    role: 'moderator',
+    permissions: ['events', 'support'],
+    isActive: true,
+    createdAt: '2025-11-20T09:15:00Z',
+    lastLogin: '2026-01-18T11:45:00Z',
+    createdBy: 'admin-001',
+  },
+  {
+    id: 'admin-004',
+    name: 'Emma Wilson',
+    email: 'emma@lurexo.com',
+    role: 'support',
+    permissions: ['support'],
+    isActive: false,
+    createdAt: '2025-12-05T16:20:00Z',
+    lastLogin: '2026-01-10T09:30:00Z',
+    createdBy: 'admin-001',
+  },
+];

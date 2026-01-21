@@ -285,3 +285,31 @@ export interface UserDetail extends AdminUser {
     isDefault: boolean;
   }[];
 }
+
+// Platform Settings
+export interface PlatformSettings {
+  commissionRate: number; // Percentage (e.g., 5 for 5%)
+  maxTicketPrice: number;
+  minTicketPrice: number;
+  resaleCap: number; // Percentage (e.g., 110 for 110%)
+  autoApproveEvents: boolean;
+  maintenanceMode: boolean;
+  flaggedKeywords: string[];
+  platformName: string;
+  supportEmail: string;
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+}
+
+// Admin User (for admin management)
+export interface AdminUserAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'admin' | 'moderator' | 'support';
+  permissions: string[];
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string;
+  createdBy: string;
+}
