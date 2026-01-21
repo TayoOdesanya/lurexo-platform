@@ -20,40 +20,48 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # NOTE: Do NOT enable npm caching here unless frontend/package-lock.json exists.
+      # Your repo currently does NOT have frontend/package-lock.json, so caching fails.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
 
-      # IMPORTANT: install from repo root (lockfile is at root)
-      - name: Install dependencies (repo root)
-        run: npm ci --no-audit --no-fund
+      - name: Install dependencies (frontend)
+        working-directory: frontend
+        run: npm install --no-audit --no-fund
 
       - name: Build (frontend)
         working-directory: frontend
         run: npm run build
 
-      - name: Verify standalone build output
+      - name: Verify standalone build output (find server.js)
         working-directory: frontend
         run: |
           test -d .next/standalone || (echo ".next/standalone not found. Did you set output: 'standalone' in next.config.ts?" && exit 1)
-          test -f .next/standalone/server.js || (echo "server.js not found in .next/standalone" && exit 1)
-          echo "Standalone output OK"
-          ls -la .next/standalone | head
 
-      # Package standalone so server.js ends up at /home/site/wwwroot/server.js
+          echo "Searching for server.js under .next/standalone..."
+          find .next/standalone -maxdepth 6 -name server.js -print
+
+          SERVER_JS_PATH="$(find .next/standalone -maxdepth 6 -name server.js -print -quit)"
+          test -n "$SERVER_JS_PATH" || (echo "server.js not found anywhere under .next/standalone" && exit 1)
+
+          echo "Found: $SERVER_JS_PATH"
+          echo "SERVER_DIR=$(dirname "$SERVER_JS_PATH")" >> $GITHUB_ENV
+
+      # Package the standalone output so server.js ends up at /home/site/wwwroot/server.js
       - name: Create deployment zip (standalone)
         run: |
           rm -f frontend.zip
           rm -rf _deploy
           mkdir -p _deploy
 
-          # Copy standalone server + bundled node_modules into deploy root
-          cp -R frontend/.next/standalone/* _deploy/
+          echo "Using SERVER_DIR=$SERVER_DIR"
 
-          # Copy static assets where Next expects them at runtime
+          # Copy standalone runtime folder contents (where server.js actually is) to zip root
+          cp -R "$SERVER_DIR"/* _deploy/
+
+          # Copy static assets where Next expects them
           mkdir -p _deploy/.next
           cp -R frontend/.next/static _deploy/.next/static
 
@@ -62,10 +70,9 @@ jobs:
             cp -R frontend/public _deploy/public
           fi
 
-          # (Optional) If you use next/image with sharp, standalone usually bundles it,
-          # but if you ever hit missing optional deps, we can revisit.
+          # Sanity check: server.js must exist at deploy root
+          test -f _deploy/server.js || (echo "Expected _deploy/server.js but not found. Packaging logic may need adjusting." && exit 1)
 
-          # Zip deploy root contents so server.js is at zip root
           cd _deploy
           zip -r ../frontend.zip .
           cd ..
@@ -73,7 +80,7 @@ jobs:
           echo "Zip created:"
           ls -lh frontend.zip
           echo "Zip contents (top):"
-          unzip -l frontend.zip | head -n 60
+          unzip -l frontend.zip | head -n 80
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
