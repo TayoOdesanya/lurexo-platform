@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies (frontend)
         working-directory: frontend
@@ -33,27 +35,40 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Verify Next build output
+      - name: Verify standalone build output
         working-directory: frontend
         run: |
-          test -d .next || (echo ".next not found" && exit 1)
-          ls -la .next | head
+          test -d .next/standalone || (echo ".next/standalone not found. Did you set output: 'standalone' in next.config.ts?" && exit 1)
+          test -f .next/standalone/server.js || (echo "server.js not found in .next/standalone" && exit 1)
+          echo "Standalone output OK"
+          ls -la .next/standalone | head
 
-      # Zip from inside /frontend so package.json ends up at wwwroot root
-      - name: Create deployment zip (includes node_modules)
+      # Package the standalone output so server.js ends up at /home/site/wwwroot/server.js
+      - name: Create deployment zip (standalone)
         run: |
           rm -f frontend.zip
-          cd frontend
-          zip -r ../frontend.zip \
-            .next \
-            public \
-            package.json \
-            package-lock.json \
-            next.config.* \
-            node_modules \
-            -x ".next/cache/*"
+          rm -rf _deploy
+          mkdir -p _deploy
+
+          # Copy standalone server + bundled node_modules into deploy root
+          cp -R frontend/.next/standalone/* _deploy/
+
+          # Copy static assets where Next expects them at runtime
+          mkdir -p _deploy/.next
+          cp -R frontend/.next/static _deploy/.next/static
+
+          # Public folder for assets
+          if [ -d "frontend/public" ]; then
+            cp -R frontend/public _deploy/public
+          fi
+
+          # Zip the contents of _deploy so server.js is at zip root
+          cd _deploy
+          zip -r ../frontend.zip .
           cd ..
+
           ls -lh frontend.zip
+          unzip -l frontend.zip | head -n 40
 
       - name: Azure Login (OIDC)
         uses: azure/login@v2
