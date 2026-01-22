@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
-import { getApiBaseUrl } from "@/lib/apiBase";
+import { getServerApiBaseUrl } from "@/lib/serverApiBase";
 
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = getServerApiBaseUrl();
 
 function getBearerToken(req: Request): string {
   const auth = req.headers.get('authorization') || req.headers.get('Authorization');
