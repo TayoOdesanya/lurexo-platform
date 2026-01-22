@@ -24,6 +24,7 @@ import {
   MapPin,
   X,
 } from 'lucide-react';
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 type AccountType = 'artist' | 'organizer' | 'both' | null;
 
@@ -36,7 +37,7 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 const [verificationToken, setVerificationToken] = useState<string | null>(null);
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
+const API_BASE_URL = getApiBaseUrl();
 
 
   // Form data

@@ -26,10 +26,9 @@ import {
 } from 'lucide-react';
 import { apiRequestAuth } from '../../../lib/api';
 import { resolveEventImageSrc } from '@/lib/images';
+import { getApiBaseUrl } from "@/lib/apiBase";
 
-const API_BASE_URL =
-  (process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api').replace(/\/$/, '');
-
+const API_BASE_URL = getApiBaseUrl();
 
 function getAccessTokenClient(): string | null {
   try {

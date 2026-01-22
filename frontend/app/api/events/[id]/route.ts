@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 export const runtime = "nodejs";
 
 // Prefer NEXT_PUBLIC_API_BASE_URL (matches your .env.local)
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL || // fallback to older name
-  "https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api"
-).replace(/\/$/, "");
+const API_BASE_URL = getApiBaseUrl();
 
 function getBearerToken(req: Request): string {
   const auth = req.headers.get("authorization") || req.headers.get("Authorization");

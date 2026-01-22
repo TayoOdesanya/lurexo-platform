@@ -17,6 +17,10 @@ import {
   Loader2,
   Wand2,
 } from 'lucide-react';
+import { getApiBaseUrl } from "@/lib/apiBase";
+
+const API_BASE_URL = getApiBaseUrl();
+
 
 function getAccessTokenClient(): string | null {
   try {
@@ -89,7 +93,7 @@ useEffect(() => {
 
   (async () => {
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
+      const base =  API_BASE_URL;
       const res = await fetch(`${base}/events/${eventId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',

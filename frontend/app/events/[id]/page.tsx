@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
 import { resolveEventImageSrc } from '@/lib/images';
+import { getApiBaseUrl } from "@/lib/apiBase";
+
+const API_BASE_URL = getApiBaseUrl();
+
 
 type Organizer = {
   name: string;
@@ -100,7 +104,7 @@ useEffect(() => {
   setLoading(true);
   setError(null);
 
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
+  const base = API_BASE_URL;
 
   fetch(`${base}/events/${id}`)
     .then((res) => {
@@ -239,7 +243,7 @@ useEffect(() => {
                 <p className="text-red-300 font-semibold mb-2">Connection Error</p>
                 <p className="text-gray-200">
                   Couldn’t load this event. Make sure the backend is running on{' '}
-                  <span className="font-mono">https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api</span>.
+                  <span className="font-mono">lurexo-api</span>.
                 </p>
               </div>
             </div>

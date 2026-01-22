@@ -38,8 +38,8 @@ jobs:
       - name: Build (frontend)
         working-directory: frontend
         env:
-          NEXT_PUBLIC_API_BASE_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net
-          NEXT_PUBLIC_API_URL: https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net        
+          # Build-time env (baked into client bundles)
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
         run: npm run build
 
       - name: Create deployment zip (Next.js standalone)
@@ -51,7 +51,7 @@ jobs:
           mkdir -p _deploy
 
           STANDALONE_ROOT="frontend/.next/standalone"
-          test -d "$STANDALONE_ROOT" || (echo "Missing $STANDALONE_ROOT — ensure output: 'standalone'" && exit 1)
+          test -d "$STANDALONE_ROOT" || (echo "Missing $STANDALONE_ROOT — ensure next.config.ts has output: 'standalone'" && exit 1)
 
           SERVER_JS="$(find "$STANDALONE_ROOT" -type f -name server.js | head -n 1)"
           test -n "$SERVER_JS" || (echo "server.js not found under $STANDALONE_ROOT" && exit 1)
@@ -72,7 +72,8 @@ jobs:
             cp -R "$SERVER_DIR/node_modules" _deploy/node_modules
           else
             echo "No node_modules found in standalone output"
-            find "$STANDALONE_ROOT" -maxdepth 3 -type d
+            echo "Standalone dirs (top):"
+            find "$STANDALONE_ROOT" -maxdepth 3 -type d | sed -n '1,200p'
             exit 1
           fi
 

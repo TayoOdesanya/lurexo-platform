@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
+import { getApiBaseUrl } from "@/lib/apiBase";
 
 export const runtime = "nodejs";
 
-const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || "https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api").replace(/\/$/, "");
-
 export async function GET() {
+  const API_BASE_URL = getApiBaseUrl();
+
   const upstream = await fetch(`${API_BASE_URL}/events`, { cache: "no-store" });
 
   const contentType = upstream.headers.get("content-type") || "application/json";

@@ -2,9 +2,9 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiBaseUrl } from "@/lib/apiBase";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api';
+const API_BASE_URL = getApiBaseUrl();
 
 interface User {
   id: string;

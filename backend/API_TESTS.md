@@ -1,183 +1,40 @@
-# Lurexo API Testing Guide
+# Lurexo API – Manual Testing Guide
 
-Base URL: `https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api`
-
----
-
-## 1. Register a New User
-
-**POST** `/auth/register`
-```json
-{
-  "email": "john@example.com",
-  "password": "SecurePass123",
-  "firstName": "John",
-  "lastName": "Doe",
-  "role": "BUYER"
-}
-```
-
-**Expected Response:**
-```json
-{
-  "message": "Registration successful. Please check your email to verify your account.",
-  "user": {
-    "id": "uuid-here",
-    "email": "john@example.com",
-    "firstName": "John",
-    "lastName": "Doe",
-    "role": "BUYER",
-    "emailVerified": false,
-    "createdAt": "2024-12-04T14:25:00.000Z"
-  }
-}
-```
+This document provides a set of manual smoke tests for the Lurexo backend API.
+It is intended for developers and testers to quickly verify authentication
+and core endpoints in both local and Azure environments.
 
 ---
 
-## 2. Login
+## Base URL
 
-**POST** `/auth/login`
-```json
-{
-  "email": "john@example.com",
-  "password": "SecurePass123"
-}
-```
+Set the base URL once depending on the environment you are testing.
 
-**Expected Response:**
-```json
-{
-  "user": {
-    "id": "uuid-here",
-    "email": "john@example.com",
-    "firstName": "John",
-    "lastName": "Doe",
-    "role": "BUYER",
-    "emailVerified": false
-  },
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
+### Azure (Deployed)
+https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api
 
-**IMPORTANT:** Copy the `accessToken` for the next test!
+### Local Development
+http://localhost:3001/api
 
----
+## Recommended Setup (Optional)
 
-## 3. Get Current User (Protected Route)
+Using an environment variable avoids repeating the base URL.
 
-**GET** `/auth/me`
+### Windows PowerShell
+```powershell
+$env:BASE_URL="https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api"
 
-**Headers:**
-```
-Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
-```
 
-**Expected Response:**
-```json
-{
-  "id": "uuid-here",
-  "email": "john@example.com",
-  "firstName": "John",
-  "lastName": "Doe",
-  "role": "BUYER",
-  "emailVerified": false,
-  "phoneNumber": null,
-  "profilePicture": null,
-  "createdAt": "2024-12-04T14:25:00.000Z"
-}
-```
+1) Register a New User
 
----
+POST /auth/register
 
-## 4. Register an Organizer
-
-**POST** `/auth/register`
-```json
-{
-  "email": "organizer@lurexo.com",
-  "password": "OrganizerPass123",
-  "firstName": "Sarah",
-  "lastName": "Events",
-  "role": "ORGANIZER"
-}
-```
-
----
-
-## 5. Refresh Token
-
-**POST** `/auth/refresh`
-```json
-{
-  "refreshToken": "YOUR_REFRESH_TOKEN_HERE"
-}
-```
-
----
-
-## Testing with curl:
-
-### Register:
-```bash
-curl -X POST https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/register \
+curl -i -X POST "$BASE_URL/auth/register" \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "test@lurexo.com",
-    "password": "TestPass123",
-    "firstName": "Test",
-    "lastName": "User",
+    "email": "john@example.com",
+    "password": "SecurePass123",
+    "firstName": "John",
+    "lastName": "Doe",
     "role": "BUYER"
   }'
-```
-
-### Login:
-```bash
-curl -X POST https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@lurexo.com",
-    "password": "TestPass123"
-  }'
-```
-
-### Get Current User:
-```bash
-curl -X GET https://lurexo-api-a4aze9eyb3deewg5.uksouth-01.azurewebsites.net/api/auth/me \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
-```
-
----
-
-## Error Responses:
-
-### Invalid Credentials (401):
-```json
-{
-  "statusCode": 401,
-  "message": "Invalid credentials",
-  "error": "Unauthorized"
-}
-```
-
-### Email Already Exists (409):
-```json
-{
-  "statusCode": 409,
-  "message": "Email already registered",
-  "error": "Conflict"
-}
-```
-
-### Validation Error (400):
-```json
-{
-  "statusCode": 400,
-  "message": [
-    "email must be an email",
-    "password must be longer than or equal to 8 characters"
-  ],
-  "error": "Bad Request"
-}
-```
