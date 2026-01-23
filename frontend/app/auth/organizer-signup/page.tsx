@@ -24,7 +24,6 @@ import {
   MapPin,
   X,
 } from 'lucide-react';
-import { getApiBaseUrl } from "@/lib/apiBase";
 
 type AccountType = 'artist' | 'organizer' | 'both' | null;
 
@@ -37,8 +36,6 @@ export default function SignupPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 const [verificationToken, setVerificationToken] = useState<string | null>(null);
-const API_BASE_URL = getApiBaseUrl();
-
 
   // Form data
   const [formData, setFormData] = useState({
@@ -252,7 +249,7 @@ const handleSubmit = async () => {
     const role = includesOrganizer ? 'ORGANIZER' : 'BUYER';
     const username = includesOrganizer ? formData.organizationUsername : formData.artistUsername;
 
-    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    const res = await fetch(`/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -261,9 +258,7 @@ const handleSubmit = async () => {
         firstName,
         lastName,
         role,
-
         ...(username ? { username } : {}),
-
         ...(includesOrganizer
           ? {
               organizerName: formData.organizationName,
@@ -291,7 +286,6 @@ const handleSubmit = async () => {
     setIsSubmitting(false);
   }
 };
-
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">

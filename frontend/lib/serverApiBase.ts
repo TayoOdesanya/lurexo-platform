@@ -1,5 +1,12 @@
-// lib/serverApiBase.ts
 export function getServerApiBaseUrl() {
-  const base = process.env.API_BASE_URL || "http://localhost:3001/api";
-  return base.replace(/\/+$/, "");
+  const raw = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+
+  // Local dev fallback (only if env var isn't set)
+  const origin = (raw && raw.trim().length > 0) ? raw.trim() : "http://localhost:3001";
+
+  // Normalize: remove trailing slashes
+  const base = origin.replace(/\/+$/, "");
+
+  // Ensure exactly one /api at the end
+  return base.endsWith("/api") ? base : `${base}/api`;
 }
