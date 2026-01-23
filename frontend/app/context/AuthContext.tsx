@@ -1,10 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
-import { getApiBaseUrl } from "@/lib/apiBase";
-
-const API_BASE_URL = getApiBaseUrl();
+import React, { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 
 interface User {
   id: string;
@@ -19,7 +15,7 @@ interface User {
 type AuthResult = { success: boolean; message?: string };
 
 type SignupResult = AuthResult & {
-  verificationToken?: string; // ✅ dev-only: returned by backend register (Option A)
+  verificationToken?: string; // dev-only if backend returns it
 };
 
 interface AuthContextType {
@@ -63,16 +59,31 @@ function clearAuth() {
   localStorage.removeItem('userData');
 }
 
+// Always call relative Next API routes (server proxies to backend)
+const AUTH_API = '/api/auth';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
-  // Check for existing session on mount
   useEffect(() => {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const normalizeUser = (me: any): User => ({
+    id: me.id,
+    email: me.email,
+    name:
+      [me.firstName, me.lastName].filter(Boolean).join(' ') ||
+      me.name ||
+      me.email?.split('@')?.[0] ||
+      'User',
+    phone: me.phoneNumber ?? me.phone,
+    createdAt: me.createdAt || new Date().toISOString(),
+    emailVerified: !!me.emailVerified,
+    role: me.role,
+  });
 
   const checkAuth = async () => {
     try {
@@ -84,37 +95,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // If we have cached user, show it immediately while we validate in background
       if (cachedUser) setUser(cachedUser);
 
-      // Validate token with backend
-      const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      // Validate token
+      const res = await fetch(`${AUTH_API}/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       if (res.ok) {
         const me = await res.json();
-
-        const normalized: User = {
-          id: me.id,
-          email: me.email,
-          name:
-            [me.firstName, me.lastName].filter(Boolean).join(' ') ||
-            me.name ||
-            me.email?.split('@')?.[0] ||
-            'User',
-          phone: me.phoneNumber ?? me.phone,
-          createdAt: me.createdAt,
-          emailVerified: !!me.emailVerified,
-          role: me.role,
-        };
-
+        const normalized = normalizeUser(me);
         localStorage.setItem('userData', JSON.stringify(normalized));
         setUser(normalized);
         return;
       }
 
-      // If access token expired, try refresh token
+      // Try refresh
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
         clearAuth();
@@ -122,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      const refreshRes = await fetch(`${AUTH_API}/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
@@ -134,13 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const refreshed = await refreshRes.json();
+      const refreshed = await refreshRes.json().catch(() => ({}));
       if (refreshed?.accessToken) localStorage.setItem('authToken', refreshed.accessToken);
       if (refreshed?.refreshToken) localStorage.setItem('refreshToken', refreshed.refreshToken);
 
-      // Try /me again after refresh
-      const me2Res = await fetch(`${API_BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` },
+      const token2 = localStorage.getItem('authToken');
+      if (!token2) {
+        clearAuth();
+        setUser(null);
+        return;
+      }
+
+      const me2Res = await fetch(`${AUTH_API}/me`, {
+        headers: { Authorization: `Bearer ${token2}` },
       });
 
       if (!me2Res.ok) {
@@ -150,25 +152,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const me2 = await me2Res.json();
-      const normalized2: User = {
-        id: me2.id,
-        email: me2.email,
-        name:
-          [me2.firstName, me2.lastName].filter(Boolean).join(' ') ||
-          me2.name ||
-          me2.email?.split('@')?.[0] ||
-          'User',
-        phone: me2.phoneNumber ?? me2.phone,
-        createdAt: me2.createdAt,
-        emailVerified: !!me2.emailVerified,
-        role: me2.role,
-      };
-
+      const normalized2 = normalizeUser(me2);
       localStorage.setItem('userData', JSON.stringify(normalized2));
       setUser(normalized2);
     } catch (error) {
       console.error('Auth check failed:', error);
-      // Don’t hard logout on transient errors
+      // don’t hard logout on transient errors
     } finally {
       setLoading(false);
     }
@@ -176,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+      const res = await fetch(`${AUTH_API}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -187,24 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: txt || 'Login failed. Please check your credentials.' };
       }
 
-      const data = await res.json();
-
-      // Expected shape:
-      // { user: { id,email,firstName,lastName,role,emailVerified }, accessToken, refreshToken }
+      const data = await res.json().catch(() => ({}));
       const u = data.user;
 
-      const normalized: User = {
-        id: u.id,
-        email: u.email,
-        name:
-          [u.firstName, u.lastName].filter(Boolean).join(' ') ||
-          u.name ||
-          u.email?.split('@')?.[0] ||
-          'User',
-        createdAt: u.createdAt || new Date().toISOString(),
-        emailVerified: !!u.emailVerified,
-        role: u.role,
-      };
+      if (!data.accessToken || !data.refreshToken || !u) {
+        return { success: false, message: 'Login failed: unexpected response.' };
+      }
+
+      const normalized: User = normalizeUser(u);
 
       saveAuth(data.accessToken, data.refreshToken, normalized);
       setUser(normalized);
@@ -218,14 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (email: string, password: string, name: string): Promise<SignupResult> => {
     try {
-      // Backend expects: { email, password, firstName, lastName, role? }
-      // Your UI uses a single "name" field, so split it.
       const trimmed = name.trim();
       const parts = trimmed.split(/\s+/).filter(Boolean);
       const firstName = parts[0] || trimmed || 'User';
       const lastName = parts.slice(1).join(' ') || 'User';
 
-      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+      const res = await fetch(`${AUTH_API}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,7 +210,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password,
           firstName,
           lastName,
-          // role: 'BUYER', // optional
         }),
       });
 
@@ -242,15 +218,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, message: txt || 'Signup failed. This email may already be registered.' };
       }
 
-      const data = await res.json();
-      // Expected shape currently:
-      // { message, user, verificationToken? }  (verificationToken only in dev if you add Option A)
+      const data = await res.json().catch(() => ({}));
       const verificationToken: string | undefined =
         data.verificationToken ?? data?.user?.verificationToken;
-
-      // We don't log the user in automatically on signup (keeps flow clean for verification)
-      // But we can store a light "pending user" record for UI continuity if you want.
-      // For now, do nothing except return token.
 
       return {
         success: true,
@@ -263,26 +233,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-const logout = async () => {
-  try {
+  const logout = async () => {
     clearAuth();
     setUser(null);
-    // Don't navigate here - let the caller decide where to go
-  } catch (error) {
-    console.error('Logout failed:', error);
-  }
-};
-
+  };
 
   const resetPassword = async (email: string): Promise<AuthResult> => {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/request-password-reset`, {
+      const res = await fetch(`${AUTH_API}/request-password-reset`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
-      // This endpoint intentionally returns success even if email doesn't exist
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         return { success: false, message: txt || 'Failed to send reset email. Please try again.' };
@@ -298,7 +261,7 @@ const logout = async () => {
 
   const updatePassword = async (token: string, password: string): Promise<AuthResult> => {
     try {
-      const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      const res = await fetch(`${AUTH_API}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword: password }),
@@ -319,8 +282,7 @@ const logout = async () => {
 
   const verifyEmail = async (token: string): Promise<AuthResult> => {
     try {
-      // Backend uses GET /auth/verify-email/:token
-      const res = await fetch(`${API_BASE_URL}/auth/verify-email/${encodeURIComponent(token)}`, {
+      const res = await fetch(`${AUTH_API}/verify-email/${encodeURIComponent(token)}`, {
         method: 'GET',
       });
 
@@ -331,7 +293,6 @@ const logout = async () => {
 
       const data = await res.json().catch(() => ({}));
 
-      // If user is logged in, update local flag
       if (user) {
         const updatedUser = { ...user, emailVerified: true };
         setUser(updatedUser);
@@ -346,17 +307,12 @@ const logout = async () => {
   };
 
   const resendVerificationEmail = async (): Promise<AuthResult> => {
-    // You do not currently have a backend endpoint for this.
-    // Keeping as a friendly placeholder for now.
-    return {
-      success: false,
-      message: 'Resend verification is not implemented yet.',
-    };
+    // No backend endpoint currently
+    return { success: false, message: 'Resend verification is not implemented yet.' };
   };
 
   const updateProfile = async (data: Partial<User>): Promise<AuthResult> => {
     try {
-      // No backend endpoint shown for profile updates; keep local update for now.
       if (user) {
         const updatedUser = { ...user, ...data };
         setUser(updatedUser);
@@ -392,36 +348,6 @@ const logout = async () => {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-}
-
-// HOC for protected routes
-export function withAuth<P extends object>(Component: React.ComponentType<P>) {
-  return function AuthenticatedComponent(props: P) {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-
-    useEffect(() => {
-      if (!loading && !user) {
-        router.push('/login?redirect=' + encodeURIComponent(window.location.pathname));
-      }
-    }, [user, loading, router]);
-
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-black flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
-        </div>
-      );
-    }
-
-    if (!user) {
-      return null;
-    }
-
-    return <Component {...props} />;
-  };
 }

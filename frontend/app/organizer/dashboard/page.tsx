@@ -18,19 +18,31 @@ import {
   Activity,
 } from 'lucide-react';
 
-// import {
-//   LineChart,
-//   Line,
-//   AreaChart,
-//   Area,
-//   XAxis,
-//   YAxis,
-//   CartesianGrid,
-//   Tooltip,
-//   ResponsiveContainer,
-// } from 'recharts';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
-import { withAuth, useAuth } from '@/context/AuthContext';
+export default function DashboardPage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/auth/organizer-login');
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
+    return <div className="p-6 text-white">Loading…</div>;
+  }
+
+  return (
+    <div>
+      {/* your dashboard UI */}
+    </div>
+  );
+}
+
+
 
 type OrganizerDashboardResponse = {
   summary: {
@@ -609,5 +621,3 @@ function OrganizerDashboard() {
     </div>
   );
 }
-
-export default withAuth(OrganizerDashboard);
