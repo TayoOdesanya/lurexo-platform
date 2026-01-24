@@ -160,7 +160,7 @@ useEffect(() => {
                         The smarter way<br />to experience events
                     </h1>
                     <p className="text-xl text-gray-200 max-w-2xl mb-8">
-                        Fair prices. No bots. Transparent fees. Get closer to the events you love.
+                        Fair prices. No bots. Transparent fees. Get closer to the events you love. Yeah!!!
                     </p>
 
                     <div className="max-w-2xl">
