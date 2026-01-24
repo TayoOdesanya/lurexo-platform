@@ -1,31 +1,62 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { LogLevel, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
+const DEFAULT_LOCAL_ORIGINS = ['http://localhost:3000'];
+
+function parseLogLevels(input?: string): LogLevel[] | undefined {
+  if (!input) return undefined;
+
+  const allowed = new Set<LogLevel>(['log', 'error', 'warn', 'debug', 'verbose', 'fatal']);
+  const levels = input
+    .split(',')
+    .map((level) => level.trim())
+    .filter((level) => allowed.has(level as LogLevel)) as LogLevel[];
+
+  return levels.length ? levels : undefined;
+}
+
+function buildAllowedOrigins(config: ConfigService): Set<string> {
+  const origins = new Set(DEFAULT_LOCAL_ORIGINS);
+
+  const frontendUrl = config.get<string>('FRONTEND_URL');
+  if (frontendUrl) origins.add(frontendUrl);
+
+  const extraOrigins = config.get<string>('CORS_ALLOWED_ORIGINS');
+  if (extraOrigins) {
+    extraOrigins
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .forEach((origin) => origins.add(origin));
+  }
+
+  return origins;
+}
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logLevels = parseLogLevels(process.env.LOG_LEVELS);
+  const app = await NestFactory.create(AppModule, logLevels ? { logger: logLevels } : undefined);
+  const config = app.get(ConfigService);
 
   // Enable CORS
-const allowedOrigins = new Set([
-  "http://localhost:3000",
-  "https://lurexo-web-fmb8g0cte0h5ame7.uksouth-01.azurewebsites.net",
-]);
+  const allowedOrigins = buildAllowedOrigins(config);
+  app.enableCors({
+    origin: (origin, callback) => {
+      // allow server-to-server / tools like Postman (no Origin header)
+      if (!origin) return callback(null, true);
 
-app.enableCors({
-  origin: (origin, callback) => {
-    // allow server-to-server / tools like Postman (no Origin header)
-    if (!origin) return callback(null, true);
+      // exact matches (local dev + configured sites)
+      if (allowedOrigins.has(origin)) return callback(null, true);
 
-    // exact matches (local dev + your current site)
-    if (allowedOrigins.has(origin)) return callback(null, true);
+      // allow any Azure App Service hostname for your frontend (slots, re-deploys, etc.)
+      if (/^https:\/\/.*\.azurewebsites\.net$/i.test(origin)) return callback(null, true);
 
-    // allow any Azure App Service hostname for your frontend (slots, re-deploys, etc.)
-    if (/^https:\/\/.*\.azurewebsites\.net$/i.test(origin)) return callback(null, true);
-
-    return callback(new Error(`CORS blocked for origin: ${origin}`), false);
-  },
-  credentials: true,
-});
+      return callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
+    credentials: true,
+  });
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -37,10 +68,12 @@ app.enableCors({
   );
 
   // API prefix
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: [{ path: 'health', method: RequestMethod.GET }],
+  });
 
-  const port = Number(process.env.PORT) || 3001;
+  const port = Number(config.get<string>('PORT') || 3001);
   await app.listen(port, '0.0.0.0');
-  console.log(`🚀 Lurexo API running on port ${port}`);
+  console.log(`Lurexo API running on port ${port}`);
 }
 bootstrap();

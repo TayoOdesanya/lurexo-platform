@@ -11,10 +11,12 @@ import { ResaleMarketplaceModule } from './resale-marketplace/resale-marketplace
 import { AnalyticsModule } from './analytics/analytics.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
+import { HealthModule } from './health/health.module';
+import { appSettingsConfig } from './config/appsettings';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, load: [appSettingsConfig] }),
     PrismaModule,
     AuthModule,
     EventsModule,
@@ -23,6 +25,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     TicketTransfersModule,
     ResaleMarketplaceModule,
     AnalyticsModule,
+    HealthModule,
   ],
   providers: [
     {
