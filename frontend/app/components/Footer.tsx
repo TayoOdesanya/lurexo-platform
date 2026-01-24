@@ -17,7 +17,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
-            <h4 className={`${text} font-bold mb-4`}>About</h4>
+            <h4 className={`${text} font-bold mb-4`}>Abbbbbbbbout</h4>
             <ul className="space-y-2">
               <li><Link href="/about" className={`${textSecondary} hover:${text} transition-colors`}>About Lurexo</Link></li>
               <li><Link href="/how-it-works" className={`${textSecondary} hover:${text} transition-colors`}>How it Works</Link></li>
