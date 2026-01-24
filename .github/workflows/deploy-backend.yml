@@ -49,6 +49,13 @@ jobs:
           test -f dist/main.js || (echo "dist/main.js not found" && exit 1)
           ls -la dist | head
 
+      - name: Debug DATABASE_URL parts (safe)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          node -e "const u=new URL(process.env.DATABASE_URL); console.log({username:u.username, host:u.hostname, port:u.port, db:u.pathname});"
+
       - name: Prisma migrate deploy (Azure DB)
         working-directory: backend
         env:
