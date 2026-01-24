@@ -31,7 +31,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: package-lock.json
 
-      # Install deps at repo root (monorepo layout)
+      # Install deps at repo root (the monorepo layout)
       - name: Install dependencies (repo root)
         run: npm install --no-audit --no-fund
 

@@ -59,6 +59,7 @@ export default function Footer() {
 
         <div className={`pt-8 border-t ${border} text-center ${textSecondary} text-sm`}>
           <p>© 2025 Lurexo • Made for real fans</p>
+          <p className="mt-2 text-xs opacity-70">Deploy marker: v2</p>
         </div>
       </div>
     </footer>
