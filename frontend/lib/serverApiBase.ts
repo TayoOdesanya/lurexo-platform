@@ -1,11 +1,13 @@
 export function getServerApiBaseUrl() {
+  // Use bracket access to avoid build-time inlining of env vars.
+  const env = process.env;
   const raw =
-    process.env.API_BASE_URL ||
-    process.env.APPSETTING_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
-    process.env.APPSETTING_NEXT_PUBLIC_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    process.env.APPSETTING_NEXT_PUBLIC_API_URL;
+    env["API_BASE_URL"] ||
+    env["APPSETTING_API_BASE_URL"] ||
+    env["NEXT_PUBLIC_API_BASE_URL"] ||
+    env["APPSETTING_NEXT_PUBLIC_API_BASE_URL"] ||
+    env["NEXT_PUBLIC_API_URL"] ||
+    env["APPSETTING_NEXT_PUBLIC_API_URL"];
 
   // Local dev fallback (only if env var isn't set)
   const origin = (raw && raw.trim().length > 0) ? raw.trim() : "http://localhost:3001";
