@@ -1,3 +1,5 @@
+let didLogServerApiBase = false;
+
 export function getServerApiBaseUrl() {
   // Use bracket access to avoid build-time inlining of env vars.
   const env = process.env;
@@ -8,6 +10,11 @@ export function getServerApiBaseUrl() {
     env["APPSETTING_NEXT_PUBLIC_API_BASE_URL"] ||
     env["NEXT_PUBLIC_API_URL"] ||
     env["APPSETTING_NEXT_PUBLIC_API_URL"];
+
+  if (!didLogServerApiBase) {
+    didLogServerApiBase = true;
+    console.log("[serverApiBase] raw env:", raw || "<empty>");
+  }
 
   // Local dev fallback (only if env var isn't set)
   const origin = (raw && raw.trim().length > 0) ? raw.trim() : "http://localhost:3001";
