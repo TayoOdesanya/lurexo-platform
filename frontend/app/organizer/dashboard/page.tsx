@@ -35,11 +35,7 @@ export default function DashboardPage() {
     return <div className="p-6 text-white">Loading…</div>;
   }
 
-  return (
-    <div>
-      {/* your dashboard UI */}
-    </div>
-  );
+  return <OrganizerDashboard />;
 }
 
 
