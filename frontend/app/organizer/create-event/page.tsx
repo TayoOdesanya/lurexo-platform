@@ -17,9 +17,6 @@ import {
   Loader2,
   Wand2,
 } from 'lucide-react';
-import { getApiBaseUrl } from "@/lib/apiBase";
-
-const API_BASE_URL = getApiBaseUrl();
 
 
 function getAccessTokenClient(): string | null {
@@ -93,8 +90,7 @@ useEffect(() => {
 
   (async () => {
     try {
-      const base =  API_BASE_URL;
-      const res = await fetch(`${base}/events/${eventId}`, {
+      const res = await fetch(`/api/events/${eventId}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',
       });
