@@ -71,8 +71,8 @@ jobs:
           echo "Server.js found at: $SERVER_JS"
           echo "Server dir: $SERVER_DIR"
 
-          # Copy app bundle so server.js is at zip root
-          cp -R "$SERVER_DIR/"* _deploy/
+          # Copy app bundle (include dotfiles like .next)
+          cp -R "$SERVER_DIR/." _deploy/
 
           # Copy standalone node_modules (preferred location)
           if [ -d "$STANDALONE_ROOT/node_modules" ]; then
