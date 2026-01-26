@@ -113,12 +113,23 @@ export class EventsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ORGANIZER, UserRole.ADMIN)
   @Patch(':id')
+  @UseInterceptors(
+    FileInterceptor('coverImage', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      fileFilter: (_req, file, cb) => {
+        const ok = /^image\/(png|jpe?g|webp|gif)$/.test(file.mimetype);
+        if (!ok) return cb(new BadRequestException('coverImage must be an image file'), false);
+        cb(null, true);
+      },
+    }),
+  )
   update(
     @Param('id') id: string,
     @CurrentUser() user: any,
     @Body() updateEventDto: UpdateEventDto,
+    @UploadedFile() coverImageFile?: Express.Multer.File,
   ) {
-    return this.eventsService.update(id, user.id, updateEventDto);
+    return this.eventsService.update(id, user.id, updateEventDto, coverImageFile);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)

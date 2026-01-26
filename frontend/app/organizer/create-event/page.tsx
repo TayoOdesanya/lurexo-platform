@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import Link from 'next/link';
+import { resolveEventImageSrc } from '@/lib/images';
 import {
   Calendar,
   Users,
@@ -53,6 +54,36 @@ function toInt(v: unknown, fallback = 0) {
 function toFloat(v: unknown, fallback = 0) {
   const n = Number.parseFloat(String(v ?? ''));
   return Number.isFinite(n) ? n : fallback;
+}
+
+function toShortDescription(desc: string) {
+  const text = String(desc ?? '').trim();
+  if (!text) return '';
+  const firstLine = text.split('\n').find((line) => line.trim()) ?? text;
+  return firstLine.length > 160 ? firstLine.slice(0, 160) : firstLine;
+}
+
+function mapCategoryFromApi(value?: string | null): string {
+  const v = String(value ?? '').toUpperCase();
+  switch (v) {
+    case 'MUSIC':
+      return 'music';
+    case 'SPORTS':
+      return 'sports';
+    case 'ARTS':
+      return 'arts';
+    case 'COMEDY':
+      return 'comedy';
+    case 'THEATER':
+    case 'THEATRE':
+      return 'theatre';
+    case 'CONFERENCE':
+      return 'business';
+    case 'OTHER':
+      return 'other';
+    default:
+      return '';
+  }
 }
 
 export default function CreateEventPage() {
@@ -126,14 +157,16 @@ useEffect(() => {
               },
             ];
 
-      const hero = e.heroImage ?? e.imageUrl ?? '';
+      const hero = resolveEventImageSrc(e.heroImage ?? e.imageUrl ?? '') ?? '';
+      const description = String(e.description ?? '');
+      const longDescription = String(e.longDescription ?? '');
 
       setFormData((prev) => ({
         ...prev,
         eventName: e.title ?? prev.eventName,
-        category: e.category ?? prev.category,
-        shortDescription: e.description ?? prev.shortDescription,
-        longDescription: e.longDescription ?? prev.longDescription,
+        category: mapCategoryFromApi(e.category) || prev.category,
+        shortDescription: toShortDescription(description) || prev.shortDescription,
+        longDescription: longDescription || description || prev.longDescription,
 
         // IMPORTANT: we can only set preview URL here, not the actual File
         coverImage: null,
@@ -411,7 +444,16 @@ const res = await fetch(url, {
       throw new Error(msg);
     }
 
-    return res.json();
+    const saved = await res.json();
+    const savedHero = resolveEventImageSrc(saved?.heroImage ?? saved?.imageUrl ?? '') ?? '';
+    if (savedHero) {
+      setFormData((prev) => ({
+        ...prev,
+        coverImage: null,
+        coverImagePreview: savedHero,
+      }));
+    }
+    return saved;
   };
 
   const handleSaveDraft = async () => {

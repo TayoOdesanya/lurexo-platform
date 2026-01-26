@@ -25,6 +25,28 @@ const { user } = useAuth();
 const isSignedIn = !!user;
 const isOrganizer = (user?.role || "").toUpperCase() === "ORGANIZER" || (user?.role || "").toUpperCase() === "ADMIN";
 
+const toNumber = (value: unknown) => {
+  const n = typeof value === 'string' ? Number(value) : (value as number);
+  return Number.isFinite(n) ? n : NaN;
+};
+
+const toPounds = (value: number, isPence: boolean) => (isPence ? value / 100 : value);
+
+const getDisplayPrice = (event: any) => {
+  const tiers = Array.isArray(event.ticketTiers) ? event.ticketTiers : [];
+  if (tiers.length > 0) {
+    const prices = tiers.map((tier) => toNumber(tier?.price)).filter((n) => Number.isFinite(n));
+    if (prices.length > 0) {
+      return toPounds(Math.min(...prices), true);
+    }
+  }
+
+  const rawPrice = toNumber(event.ticketPrice);
+  if (Number.isFinite(rawPrice)) return toPounds(rawPrice, false);
+
+  return 0;
+};
+
 
     useEffect(() => {
         setMounted(true);
@@ -223,7 +245,7 @@ useEffect(() => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {filteredEvents.map((event: any) => {
-                                const totalPrice = Number(event.ticketPrice) + Number(event.serviceFee || 0);
+                                const totalPrice = getDisplayPrice(event);
                                 const percentSold = (event.ticketsSold / event.capacity) * 100;
                                 const isAlmostSoldOut = percentSold > 80;
 

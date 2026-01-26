@@ -300,7 +300,12 @@ export class EventsService {
     });
   }
 
-  async update(id: string, userId: string, updateEventDto: UpdateEventDto) {
+  async update(
+    id: string,
+    userId: string,
+    updateEventDto: UpdateEventDto,
+    coverImage?: Express.Multer.File,
+  ) {
     const event = await this.prisma.event.findUnique({
       where: { id },
     });
@@ -314,6 +319,21 @@ export class EventsService {
     }
 
     const updateData: any = { ...updateEventDto };
+    if (coverImage?.buffer?.length) {
+      try {
+        const uploaded = await this.storage.uploadEventImage({
+          organiserId: userId,
+          eventId: id,
+          imageRole: 'hero',
+          fileBuffer: coverImage.buffer,
+          mimeType: coverImage.mimetype,
+          originalName: coverImage.originalname,
+        });
+        updateData.heroImage = uploaded.key;
+      } catch (_e) {
+        throw new InternalServerErrorException('Failed to upload cover image');
+      }
+    }
     if (updateEventDto.status === 'PUBLISHED' && event.status === 'DRAFT') {
       updateData.publishedAt = new Date();
     }

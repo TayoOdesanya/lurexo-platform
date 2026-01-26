@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, Plus, Save, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Download, Plus, Save, Trash2, Upload, X } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/apiBase';
 
 const API_BASE_URL = getApiBaseUrl();
@@ -52,9 +52,11 @@ export default function GuestListPage() {
   const [entries, setEntries] = useState<GuestListEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<GuestFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [eventName, setEventName] = useState<string>('');
 
   useEffect(() => {
     const token = getAccessTokenClient();
@@ -90,9 +92,99 @@ export default function GuestListPage() {
     void loadEntries(accessToken, eventId);
   }, [accessToken, eventId]);
 
+  useEffect(() => {
+    if (!eventId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/events/${eventId}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setEventName((data?.title ?? '').toString());
+      } catch {
+        if (!cancelled) setEventName('');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId]);
+
   const resetForm = () => {
     setForm(emptyForm);
     setEditingId(null);
+  };
+
+  const normalizeStatus = (value: string) => {
+    const v = String(value ?? '').trim().toUpperCase();
+    if (v === 'CHECKED_IN' || v === 'CHECKED IN') return 'CHECKED_IN';
+    if (v === 'CANCELLED' || v === 'CANCELED') return 'CANCELLED';
+    return 'INVITED';
+  };
+
+  const parseCsvLine = (line: string) => {
+    const out: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        const next = line[i + 1];
+        if (inQuotes && next === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+      if (ch === ',' && !inQuotes) {
+        out.push(current);
+        current = '';
+        continue;
+      }
+      current += ch;
+    }
+    out.push(current);
+    return out.map((v) => v.trim());
+  };
+
+  const parseCsv = (text: string) => {
+    const rows = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map(parseCsvLine);
+
+    if (!rows.length) return [];
+
+    const header = rows[0].map((v) => v.toLowerCase());
+    const hasHeader = header.includes('name');
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    return dataRows.map((cols) => {
+      if (hasHeader) {
+        const get = (key: string) => cols[header.indexOf(key)] ?? '';
+        return {
+          name: get('name'),
+          email: get('email'),
+          phone: get('phone'),
+          notes: get('notes'),
+          status: get('status'),
+        };
+      }
+      return {
+        name: cols[0] ?? '',
+        email: cols[1] ?? '',
+        phone: cols[2] ?? '',
+        notes: cols[3] ?? '',
+        status: cols[4] ?? '',
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +269,89 @@ export default function GuestListPage() {
     }
   };
 
+  const handleExportCsv = () => {
+    const header = ['name', 'email', 'phone', 'notes', 'status'];
+    const lines = [
+      header.join(','),
+      ...entries.map((entry) => {
+        const row = [
+          entry.name ?? '',
+          entry.email ?? '',
+          entry.phone ?? '',
+          entry.notes ?? '',
+          entry.status ?? '',
+        ];
+        return row
+          .map((value) => {
+            const v = String(value ?? '');
+            if (v.includes(',') || v.includes('"') || v.includes('\n')) {
+              return `"${v.replace(/"/g, '""')}"`;
+            }
+            return v;
+          })
+          .join(',');
+      }),
+    ];
+
+    const csv = lines.join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `guest-list-${eventId ?? 'event'}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportCsv = async (file: File) => {
+    if (!accessToken || !eventId) return;
+    try {
+      setImporting(true);
+      setError(null);
+
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (!rows.length) {
+        setError('No rows found in CSV.');
+        return;
+      }
+
+      for (const row of rows) {
+        const name = String(row.name ?? '').trim();
+        if (!name) continue;
+        const payload = {
+          name,
+          email: String(row.email ?? '').trim() || undefined,
+          phone: String(row.phone ?? '').trim() || undefined,
+          notes: String(row.notes ?? '').trim() || undefined,
+          status: normalizeStatus(String(row.status ?? '')),
+        };
+
+        const res = await fetch(`${API_BASE_URL}/events/${eventId}/guest-list`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || `Failed to import guest: ${name}`);
+        }
+      }
+
+      await loadEntries(accessToken, eventId);
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to import CSV');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const statusOptions = useMemo(
     () => [
       { value: 'INVITED', label: 'Invited' },
@@ -200,9 +375,39 @@ export default function GuestListPage() {
                 Back to Manage Events
               </Link>
               <h1 className="text-white font-bold text-2xl sm:text-3xl">Guest List</h1>
+              {eventName && (
+                <p className="text-gray-400 text-sm">Event: {eventName}</p>
+              )}
               <p className="text-gray-400 text-sm">
                 {entries.length} {entries.length === 1 ? 'guest' : 'guests'}
               </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="guest-list-import"
+                type="file"
+                accept=".csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleImportCsv(file);
+                  e.currentTarget.value = '';
+                }}
+              />
+              <label
+                htmlFor="guest-list-import"
+                className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                {importing ? 'Importing...' : 'Import CSV'}
+              </label>
+              <button
+                onClick={handleExportCsv}
+                className="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
             </div>
           </div>
         </div>

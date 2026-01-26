@@ -138,34 +138,63 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
       );
     }
 
-    // Build DTO-shaped multipart payload for NestJS event update
-    const fd = new FormData();
-    fd.append("title", eventName);
-    fd.append("description", (longDescription || shortDescription).trim());
-    fd.append("category", mappedCategory);
-    fd.append("venue", venue);
-    fd.append("address", address);
-    fd.append("city", city);
-    fd.append("country", "United Kingdom");
-    fd.append("postalCode", postcode);
-    fd.append("eventDate", isoEventDate);
-    fd.append("saleStartDate", saleStartDate);
-    fd.append("saleEndDate", saleEndDate);
-    fd.append("totalCapacity", String(safeCapacity));
-    fd.append("status", status);
-
     const coverImage = incoming.get("coverImage");
-    if (coverImage instanceof File && coverImage.size > 0) {
-      fd.append("coverImage", coverImage, coverImage.name);
-    }
+    const hasCoverImage = coverImage instanceof File && coverImage.size > 0;
 
     // 1) Update event (backend may be PATCH or PUT; PATCH is often more common)
-    const upstream = await fetch(`${API_BASE_URL}/events/${eventId}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: fd,
-      cache: "no-store",
-    });
+    let upstream: Response;
+    if (hasCoverImage) {
+      const fd = new FormData();
+      fd.append("title", eventName);
+      fd.append("description", (longDescription || shortDescription).trim());
+      fd.append("category", mappedCategory);
+      fd.append("venue", venue);
+      fd.append("address", address);
+      fd.append("city", city);
+      fd.append("country", "United Kingdom");
+      fd.append("postalCode", postcode);
+      fd.append("eventDate", isoEventDate);
+      fd.append("saleStartDate", saleStartDate);
+      fd.append("saleEndDate", saleEndDate);
+      fd.append("totalCapacity", String(safeCapacity));
+      fd.append("status", status);
+      fd.append("coverImage", coverImage, coverImage.name);
+
+      upstream = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: fd,
+        cache: "no-store",
+      });
+    } else {
+      const updatePayload = {
+        title: eventName,
+        description: (longDescription || shortDescription).trim(),
+        category: mappedCategory,
+        venue,
+        address,
+        city,
+        country: "United Kingdom",
+        postalCode: postcode,
+        eventDate: isoEventDate,
+        saleStartDate,
+        saleEndDate,
+        totalCapacity: safeCapacity,
+        status,
+      };
+
+      upstream = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(updatePayload),
+        cache: "no-store",
+      });
+    }
 
     const { contentType, raw, json } = await readTextOrJson(upstream);
     if (!upstream.ok) {
@@ -258,10 +287,14 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
   }
 }
 
-export async function GET(req: Request, ctx: { params: { id: string } }) {
+export async function GET(
+  req: Request,
+  ctx: { params: { id: string } } | { params: Promise<{ id: string }> }
+) {
   try {
     const accessToken = getBearerToken(req);
-    const eventId = ctx.params.id;
+    const params = await (ctx as { params: any }).params;
+    const eventId = params?.id;
 
     if (!eventId) return NextResponse.json({ error: "id is required" }, { status: 400 });
 

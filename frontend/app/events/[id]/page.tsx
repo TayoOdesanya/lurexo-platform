@@ -57,6 +57,17 @@ type EventDto = {
     name?: string | null;
     address?: string | null;
   } | null;
+
+  venueName?: string | null;
+  venueAddress?: string | null;
+  venueCity?: string | null;
+  venuePostalCode?: string | null;
+  venueCountry?: string | null;
+  venue?: string | null;
+  address?: string | null;
+  city?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
 };
 
 function normalizeImageSrc(src: unknown): string | null {
@@ -81,6 +92,43 @@ function formatTime(dateString?: string | null) {
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function toNumber(value: unknown) {
+  const n = typeof value === 'string' ? Number(value) : (value as number);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function getDisplayPrice(event: EventDto | null) {
+  if (!event) return 0;
+  const tiers = Array.isArray(event.ticketTiers) ? event.ticketTiers : [];
+  if (tiers.length > 0) {
+    const prices = tiers.map((tier) => toNumber(tier?.price)).filter((n) => Number.isFinite(n));
+    if (prices.length > 0) return Math.min(...prices) / 100;
+  }
+
+  const basePrice = toNumber(event.ticketPrice);
+  const serviceFee = toNumber(event.serviceFee || 0);
+  if (Number.isFinite(basePrice)) {
+    const total = basePrice + (Number.isFinite(serviceFee) ? serviceFee : 0);
+    return total;
+  }
+
+  return 0;
+}
+
+function getLocationText(event: EventDto | null) {
+  if (!event) return '';
+  if (event.location) return event.location;
+
+  const venueName = event.venue?.name || event.venueName || event.venue || '';
+  const address = event.venue?.address || event.venueAddress || event.address || '';
+  const city = event.venueCity || event.city || '';
+  const postal = event.venuePostalCode || event.postalCode || '';
+  const country = event.venueCountry || event.country || '';
+
+  const parts = [venueName, address, city, postal, country].filter(Boolean);
+  return parts.join(' • ');
 }
 
 export default function EventDetailPage() {
@@ -146,9 +194,8 @@ useEffect(() => {
   }, [event?.galleryImages]);
 
   // Pricing + meta (safe even when event is null)
-  const baseTicketPrice = Number(event?.ticketPrice ?? 0);
-  const baseServiceFee = Number(event?.serviceFee ?? 0);
-  const fromPrice = baseTicketPrice + baseServiceFee;
+  const fromPrice = getDisplayPrice(event);
+  const eventLocation = getLocationText(event);
 
   const capacity = Number(event?.capacity ?? 0);
   const ticketsSold = Number(event?.ticketsSold ?? 0);
@@ -317,7 +364,7 @@ useEffect(() => {
                     </div>
                     <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/10 backdrop-blur-sm">
                       <p className="text-gray-200 text-xs mb-1">Location</p>
-                      <p className="text-white font-bold truncate">{event.location}</p>
+                      <p className="text-white font-bold truncate">{eventLocation || 'Location TBC'}</p>
                     </div>
                   </div>
                 </div>
@@ -453,7 +500,7 @@ useEffect(() => {
 
                   <div>
                     <p className={`${textTertiary} text-xs mb-1`}>Location</p>
-                    <p className={`${textPrimary} font-semibold`}>{event.location}</p>
+                    <p className={`${textPrimary} font-semibold`}>{eventLocation || 'Location TBC'}</p>
                   </div>
                 </div>
 

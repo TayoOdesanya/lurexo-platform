@@ -1,4 +1,5 @@
 import { IsString, IsEnum, IsDateString, IsInt, Min, IsOptional, IsArray, MinLength, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 import { EventCategory, EventStatus } from '@prisma/client';
 
 export class UpdateEventDto {
@@ -84,10 +85,12 @@ export class UpdateEventDto {
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   maxTicketsPerOrder?: number;
 
   @IsInt()
   @Min(1)
   @IsOptional()
+  @Type(() => Number)
   totalCapacity?: number;
 }
