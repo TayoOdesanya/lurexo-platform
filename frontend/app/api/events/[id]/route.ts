@@ -258,6 +258,32 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
   }
 }
 
+export async function GET(req: Request, ctx: { params: { id: string } }) {
+  try {
+    const accessToken = getBearerToken(req);
+    const eventId = ctx.params.id;
+
+    if (!eventId) return NextResponse.json({ error: "id is required" }, { status: 400 });
+
+    const upstream = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const { contentType, raw } = await readTextOrJson(upstream);
+    return new NextResponse(raw, {
+      status: upstream.status,
+      headers: { "content-type": contentType },
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? "Unknown error";
+    return NextResponse.json({ error: msg }, { status: msg === "Unauthenticated" ? 401 : 500 });
+  }
+}
+
 // Optional: allow DELETE /api/events/:id from frontend if you ever need it
 export async function DELETE(req: Request, ctx: { params: { id: string } }) {
   try {
