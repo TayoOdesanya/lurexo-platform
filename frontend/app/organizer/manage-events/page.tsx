@@ -11,6 +11,7 @@ import {
   Edit,
   Eye,
   Trash2,
+  Copy,
   MoreVertical,
   Ticket,
   DollarSign,
@@ -23,8 +24,11 @@ import {
   X,
   BarChart3,
   Share2,
+  Settings,
+  UserPlus,
+  Sparkles,
+  Archive,
 } from 'lucide-react';
-import { apiRequestAuth } from '../../../lib/api';
 import { resolveEventImageSrc } from '@/lib/images';
 import { getApiBaseUrl } from "@/lib/apiBase";
 
@@ -67,6 +71,10 @@ type ApiEvent = {
 
   updatedAt?: string | null;
   createdAt?: string | null;
+
+  guestListEnabled?: boolean | null;
+  enableGuestList?: boolean | null;
+  guestCount?: number | string | null;
 };
 
 
@@ -103,6 +111,8 @@ type UiEvent = {
   image?: string;
   category: string;
   lastUpdated: string;
+  guestListEnabled?: boolean;
+  guestCount?: number;
 };
 
 function mapStatus(apiStatus?: string | null, sold: number, cap: number): UiEvent['status'] {
@@ -141,6 +151,8 @@ function toUiEvent(e: ApiEvent): UiEvent {
   const revenue = moneyToPounds(ticketPrice * sold);
 
   const venue = e.location || e.venue || '—';
+  const guestListEnabled = (e as any).guestListEnabled ?? (e as any).enableGuestList ?? true;
+  const guestCount = safeNumber((e as any).guestCount, 0);
 
   return {
     id: e.id,
@@ -156,6 +168,8 @@ function toUiEvent(e: ApiEvent): UiEvent {
     image: e.heroImage ?? e.imageUrl ?? undefined,
     category: (e.category ?? 'Event').toString(),
     lastUpdated: formatRelativeTime(e.updatedAt ?? e.createdAt),
+    guestListEnabled,
+    guestCount,
   };
 }
 
@@ -167,9 +181,11 @@ export default function ManageEventsPage() {
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'revenue' | 'sold'>('date');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   const [events, setEvents] = useState<UiEvent[]>([]);
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -318,6 +334,49 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
   const handleBulkAction = (action: string) => {
     console.log(`Bulk action: ${action} on events:`, selectedEvents);
     // TODO: implement bulk actions in backend
+  };
+
+  const handleDropdownAction = (eventId: string, action: string) => {
+    setOpenDropdown(null);
+    if (action === 'delete') {
+      const ok = confirm('Are you sure you want to delete this event?');
+      if (!ok) return;
+    }
+    console.log(`Action: ${action} on event ${eventId}`);
+  };
+
+  const handlePublishDraft = async (eventId: string) => {
+    if (!accessToken) {
+      setError('You must be signed in to publish.');
+      return;
+    }
+
+    try {
+      setPublishingId(eventId);
+      setError(null);
+
+      const res = await fetch(`${API_BASE_URL}/events/${eventId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ status: 'PUBLISHED' }),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || 'Failed to publish event');
+      }
+
+      const updated = (await res.json()) as ApiEvent;
+      const mapped = toUiEvent(updated);
+      setEvents((prev) => prev.map((event) => (event.id === eventId ? mapped : event)));
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to publish event');
+    } finally {
+      setPublishingId(null);
+    }
   };
 
   return (
@@ -489,6 +548,12 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
                       <div className="flex items-center gap-2 mb-2">
                         <h3 className="text-white font-bold text-lg truncate">{event.name}</h3>
                         {getStatusBadge(event.status)}
+                        {event.guestCount && event.guestCount > 0 && (
+                          <span className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold">
+                            <UserPlus className="w-3 h-3" />
+                            {event.guestCount ?? 0} Guests
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap gap-3 text-gray-400 text-sm mb-2">
@@ -561,12 +626,31 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-2">
+                    {event.status === 'draft' && (
+                      <button
+                        onClick={() => handlePublishDraft(event.id)}
+                        disabled={publishingId === event.id}
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors disabled:opacity-60"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        {publishingId === event.id ? 'Publishingâ€¦' : 'Publish'}
+                      </button>
+                    )}
                     <Link href={`/organizer/create-event?eventId=${encodeURIComponent(event.id)}`}>
                       <button className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
                         <Edit className="w-4 h-4" />
                         Edit Event
                       </button>
                     </Link>
+
+                    {(event.guestListEnabled ?? true) && (
+                      <Link href={`/organizer/manage-events/${event.id}/guest-list`}>
+                        <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+                          <UserPlus className="w-4 h-4" />
+                          Guest List
+                        </button>
+                      </Link>
+                    )}
 
                     {/* Match your preview route */}
                     <Link href={`/organizer/events/${event.id}/preview`}>
@@ -588,9 +672,54 @@ console.log('[manage-events] calling API...', `${API_BASE_URL}/events/my-events`
                       Share
                     </button>
 
-                    <button className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenDropdown(openDropdown === event.id ? null : event.id)}
+                        className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </button>
+
+                      {openDropdown === event.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenDropdown(null)}
+                          />
+                          <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-xl z-20 overflow-hidden">
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'duplicate')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Copy className="w-4 h-4 text-gray-400" />
+                              Duplicate Event
+                            </button>
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'settings')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Settings className="w-4 h-4 text-gray-400" />
+                              Event Settings
+                            </button>
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'archive')}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Archive className="w-4 h-4 text-gray-400" />
+                              Archive Event
+                            </button>
+                            <div className="border-t border-gray-700"></div>
+                            <button
+                              onClick={() => handleDropdownAction(event.id, 'delete')}
+                              className="w-full px-4 py-3 text-left text-red-400 hover:bg-gray-700 flex items-center gap-3 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete Event
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

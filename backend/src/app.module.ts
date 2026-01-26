@@ -13,6 +13,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { HealthModule } from './health/health.module';
 import { appSettingsConfig } from './config/appsettings';
+import { GuestListModule } from './guest-list/guest-list.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { appSettingsConfig } from './config/appsettings';
     ResaleMarketplaceModule,
     AnalyticsModule,
     HealthModule,
+    GuestListModule,
   ],
   providers: [
     {

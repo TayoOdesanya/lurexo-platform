@@ -92,12 +92,29 @@ model Event {
   listings           TicketListing[]
   ticketTiers        TicketTier[]
   tickets            Ticket[]
+  guestListEntries   GuestListEntry[]
 
   @@index([organizerId])
   @@index([status, eventDate])
   @@index([category, eventDate])
   @@index([slug])
   @@map("events")
+}
+
+model GuestListEntry {
+  id        String          @id @default(uuid())
+  eventId   String          @map("event_id")
+  name      String
+  email     String?
+  phone     String?
+  notes     String?
+  status    GuestListStatus @default(INVITED)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("guest_list_entries")
 }
 
 model Collaborator {
@@ -427,6 +444,12 @@ enum EventCategory {
   THEATER
   CONFERENCE
   OTHER
+}
+
+enum GuestListStatus {
+  INVITED
+  CHECKED_IN
+  CANCELLED
 }
 
 enum CollaboratorRole {

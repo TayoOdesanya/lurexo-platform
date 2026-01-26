@@ -280,11 +280,24 @@ export class EventsService {
             quantitySold: true,
           },
         },
+        _count: {
+          select: {
+            guestListEntries: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    return events;
+    return events.map((event) => {
+      const { _count, ...rest } = event as any;
+      const guestCount = _count?.guestListEntries ?? 0;
+      return {
+        ...rest,
+        guestListEnabled: true,
+        guestCount,
+      };
+    });
   }
 
   async update(id: string, userId: string, updateEventDto: UpdateEventDto) {
