@@ -3,6 +3,7 @@
 import Footer from '@/components/Footer';
 import { useState, useEffect } from 'react';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
 import Link from 'next/link';
 import { Calendar, MapPin, Check, Shield, ArrowRight, Menu, X } from 'lucide-react';
 import { resolveEventImageSrc } from '@/lib/images';
@@ -14,6 +15,9 @@ type HomeEvent = {
   heroImage?: string | null;
   category?: string | null;
   eventDate: string;
+  ticketTiers?: Array<{
+    price?: number | string | null;
+  }> | null;
 
   // optional: include only what you actually use on this page
   venue?: string | null;
@@ -23,14 +27,48 @@ type HomeEvent = {
 };
 
 export default function HomePage() {
+  const { user } = useAuth();
   const { isDarkMode, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [featuredEvents, setFeaturedEvents] = useState([]);
+  const isOrganizer =
+    (user?.role || '').toUpperCase() === 'ORGANIZER' ||
+    (user?.role || '').toUpperCase() === 'ADMIN';
 
   const getEventHeroImage = (event: any): string | null => {
     return resolveEventImageSrc(event?.heroImage) ?? null;
   };
+
+  const toNumber = (value: unknown) => {
+    const n = typeof value === 'string' ? Number(value) : (value as number);
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  const getBasePrice = (event: HomeEvent): number | null => {
+    const tiers = Array.isArray(event.ticketTiers) ? event.ticketTiers : [];
+    const tierPrices = tiers.map((tier) => toNumber(tier?.price)).filter((n) => Number.isFinite(n));
+    if (tierPrices.length > 0) {
+      return Math.min(...tierPrices) / 100;
+    }
+
+    const directPrice = toNumber(event.ticketPrice);
+    if (Number.isFinite(directPrice)) return directPrice;
+
+    return null;
+  };
+
+  const getServiceFee = (event: HomeEvent): number => {
+    const fee = toNumber(event.serviceFee);
+    return Number.isFinite(fee) ? fee : 0;
+  };
+
+  const formatPrice = (value: number) =>
+    new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 2,
+    }).format(value);
 
  useEffect(() => {
   setMounted(true);
@@ -95,9 +133,15 @@ export default function HomePage() {
               <Link href="/events" className={`${textSecondary} hover:${text} transition-colors`}>
                 Events
               </Link>
-              <Link href="/for-organizers" className={`${textSecondary} hover:${text} transition-colors`}>
-                For Organizers
-              </Link>
+              {isOrganizer ? (
+                <Link href="/organizer/dashboard" className={`${textSecondary} hover:${text} transition-colors`}>
+                  Dashboard
+                </Link>
+              ) : (
+                <Link href="/for-organizers" className={`${textSecondary} hover:${text} transition-colors`}>
+                  For Organizers
+                </Link>
+              )}
               <Link href="/how-it-works" className={`${textSecondary} hover:${text} transition-colors`}>
                 How it Works
               </Link>
@@ -148,7 +192,11 @@ export default function HomePage() {
           {mobileMenuOpen && (
             <div className="md:hidden mt-4 pb-4 space-y-4">
               <Link href="/events" className={`block ${text} hover:text-purple-400`}>Events</Link>
-              <Link href="/for-organizers" className={`block ${text} hover:text-purple-400`}>For Organizers</Link>
+              {isOrganizer ? (
+                <Link href="/organizer/dashboard" className={`block ${text} hover:text-purple-400`}>Dashboard</Link>
+              ) : (
+                <Link href="/for-organizers" className={`block ${text} hover:text-purple-400`}>For Organizers</Link>
+              )}
               <Link href="/how-it-works" className={`block ${text} hover:text-purple-400`}>How it Works</Link>
               <Link href="/support" className={`block ${text} hover:text-purple-400`}>Support</Link>
               <Link href="/login" className={`block w-full text-left ${text}`}>
@@ -333,8 +381,9 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredEvents.map((event) => {
-              const totalPrice = Number(event.ticketPrice) + Number(event.serviceFee || 0);
+            {featuredEvents.map((event: HomeEvent) => {
+              const basePrice = getBasePrice(event);
+              const totalPrice = basePrice === null ? null : basePrice + getServiceFee(event);
               return (
                 <Link key={event.id} href={`/events/${event.id}`} className="block h-full">
                   <div className={`h-full group relative bg-gradient-to-br ${cardBg} rounded-2xl overflow-hidden border ${border} transition-all duration-300 hover:scale-[1.02] cursor-pointer flex flex-col`}>
@@ -387,7 +436,7 @@ export default function HomePage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <p className={`text-xl font-bold ${text}`}>
-                              £{totalPrice.toFixed(2)}
+                              {totalPrice === null ? 'Price TBC' : formatPrice(totalPrice)}
                             </p>
                             <p className={`text-xs ${textSecondary}`}>inc. fees</p>
                           </div>

@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   UserPlus,
   Mail,
+  QrCode,
 } from 'lucide-react';
 
 import { useAuth } from '@/context/AuthContext';
@@ -34,14 +35,39 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const internalSegments = useMemo(
+    () =>
+      new Set([
+        '',
+        'dashboard',
+        'create-event',
+        'manage-events',
+        'analytics',
+        'audience',
+        'collaborators',
+        'marketing',
+        'payouts',
+        'settings',
+        'login',
+        'events',
+        'test',
+      ]),
+    [],
+  );
+
+  const pathSegment = (pathname || '').split('/')[2] ?? '';
+  const isPublicProfile = pathSegment.length > 0 && !internalSegments.has(pathSegment);
+
   // Ensure auth state is loaded (safe no-op if already loaded)
   useEffect(() => {
+    if (isPublicProfile) return;
     checkAuth().catch(() => void 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isPublicProfile]);
 
   // Protect organizer routes
   useEffect(() => {
+    if (isPublicProfile) return;
     if (loading) return;
 
     if (!user) {
@@ -56,13 +82,18 @@ export default function OrganizerLayout({ children }: { children: React.ReactNod
     if (role && role !== 'ORGANIZER' && role !== 'ADMIN') {
       router.push('/');
     }
-  }, [loading, user, router, pathname]);
+  }, [isPublicProfile, loading, user, router, pathname]);
+
+  if (isPublicProfile) {
+    return <div className="min-h-screen bg-black">{children}</div>;
+  }
 
   const navItems = useMemo(
     () => [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/organizer/dashboard' },
       { icon: Plus, label: 'Create Event', href: '/organizer/create-event' },
       { icon: Calendar, label: 'Manage Events', href: '/organizer/manage-events' },
+      { icon: QrCode, label: 'Scanner', href: '/scanner' },
       { icon: BarChart3, label: 'Analytics', href: '/organizer/analytics' },
       { icon: Users, label: 'Audience', href: '/organizer/audience' },
       { icon: UserPlus, label: 'Collaborators', href: '/organizer/collaborators' },

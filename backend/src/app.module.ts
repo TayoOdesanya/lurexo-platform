@@ -14,6 +14,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { HealthModule } from './health/health.module';
 import { appSettingsConfig } from './config/appsettings';
 import { GuestListModule } from './guest-list/guest-list.module';
+import { OrganizersModule } from './organizers/organizers.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { GuestListModule } from './guest-list/guest-list.module';
     AnalyticsModule,
     HealthModule,
     GuestListModule,
+    OrganizersModule,
   ],
   providers: [
     {

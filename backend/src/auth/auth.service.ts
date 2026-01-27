@@ -11,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -267,6 +268,16 @@ export class AuthService {
         emailVerified: true,
         phoneNumber: true,
         profilePicture: true,
+        organizerName: true,
+        organizerUsername: true,
+        organizerAvatar: true,
+        organizerVerified: true,
+        organizerBio: true,
+        organizerCompanyName: true,
+        organizerWebsite: true,
+        organizerAddress: true,
+        organizerVatNumber: true,
+        avatar: true,
         createdAt: true,
       },
     });
@@ -276,6 +287,72 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (!existing) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (updateProfileDto.email && updateProfileDto.email !== existing.email) {
+      const emailExists = await this.prisma.user.findUnique({
+        where: { email: updateProfileDto.email },
+        select: { id: true },
+      });
+      if (emailExists) {
+        throw new ConflictException('Email already registered');
+      }
+    }
+
+    const data = {
+      ...(updateProfileDto.firstName !== undefined ? { firstName: updateProfileDto.firstName } : {}),
+      ...(updateProfileDto.lastName !== undefined ? { lastName: updateProfileDto.lastName } : {}),
+      ...(updateProfileDto.email !== undefined ? { email: updateProfileDto.email } : {}),
+      ...(updateProfileDto.phoneNumber !== undefined ? { phoneNumber: updateProfileDto.phoneNumber } : {}),
+      ...(updateProfileDto.profilePicture !== undefined ? { profilePicture: updateProfileDto.profilePicture } : {}),
+      ...(updateProfileDto.avatar !== undefined ? { avatar: updateProfileDto.avatar } : {}),
+      ...(updateProfileDto.organizerName !== undefined ? { organizerName: updateProfileDto.organizerName } : {}),
+      ...(updateProfileDto.organizerUsername !== undefined ? { organizerUsername: updateProfileDto.organizerUsername } : {}),
+      ...(updateProfileDto.organizerAvatar !== undefined ? { organizerAvatar: updateProfileDto.organizerAvatar } : {}),
+      ...(updateProfileDto.organizerBio !== undefined ? { organizerBio: updateProfileDto.organizerBio } : {}),
+      ...(updateProfileDto.organizerCompanyName !== undefined ? { organizerCompanyName: updateProfileDto.organizerCompanyName } : {}),
+      ...(updateProfileDto.organizerWebsite !== undefined ? { organizerWebsite: updateProfileDto.organizerWebsite } : {}),
+      ...(updateProfileDto.organizerAddress !== undefined ? { organizerAddress: updateProfileDto.organizerAddress } : {}),
+      ...(updateProfileDto.organizerVatNumber !== undefined ? { organizerVatNumber: updateProfileDto.organizerVatNumber } : {}),
+    };
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        emailVerified: true,
+        phoneNumber: true,
+        profilePicture: true,
+        organizerName: true,
+        organizerUsername: true,
+        organizerAvatar: true,
+        organizerVerified: true,
+        organizerBio: true,
+        organizerCompanyName: true,
+        organizerWebsite: true,
+        organizerAddress: true,
+        organizerVatNumber: true,
+        avatar: true,
+        createdAt: true,
+      },
+    });
+
+    return updated;
   }
 
   private async generateTokens(userId: string, email: string, role: string) {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 import {
   User,
   Mail,
@@ -40,11 +41,16 @@ import {
 } from 'lucide-react';
 
 export default function OrganizerSettingsPage() {
+  const { updateProfile } = useAuth();
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Profile data
   const [profileData, setProfileData] = useState({
@@ -57,7 +63,7 @@ export default function OrganizerSettingsPage() {
     website: 'https://morganevents.co.uk',
     address: '123 High Street, London, SW1A 1AA',
     vatNumber: 'GB123456789',
-    avatar: null
+    avatar: null as string | null
   });
 
   // Account security
@@ -99,6 +105,62 @@ export default function OrganizerSettingsPage() {
     minimumPayout: 100
   });
 
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setIsLoadingProfile(false);
+      return;
+    }
+
+    setIsLoadingProfile(true);
+    setLoadError(null);
+
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load profile');
+        return res.json();
+      })
+      .then((me) => {
+        setProfileData((prev) => ({
+          ...prev,
+          firstName: me.firstName || '',
+          lastName: me.lastName || '',
+          email: me.email || '',
+          phone: me.phoneNumber || '',
+          bio: me.organizerBio || '',
+          companyName: me.organizerCompanyName || me.organizerName || '',
+          website: me.organizerWebsite || '',
+          address: me.organizerAddress || '',
+          vatNumber: me.organizerVatNumber || '',
+          avatar: me.organizerAvatar || me.avatar || me.profilePicture || null
+        }));
+      })
+      .catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load profile');
+      })
+      .finally(() => setIsLoadingProfile(false));
+  }, []);
+
+  const handleAvatarUpload = (file?: File | null) => {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      setSaveError('Please upload an image file.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('Image must be under 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProfileData((prev) => ({ ...prev, avatar: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     // Simulate API call
@@ -106,6 +168,61 @@ export default function OrganizerSettingsPage() {
     setIsSaving(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleProfileSave = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+      setSaveError('You must be signed in to update your profile.');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const res = await fetch('/api/auth/me', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          firstName: profileData.firstName.trim(),
+          lastName: profileData.lastName.trim(),
+          email: profileData.email.trim(),
+          phoneNumber: profileData.phone.trim(),
+          organizerBio: profileData.bio.trim(),
+          organizerCompanyName: profileData.companyName.trim(),
+          organizerName: profileData.companyName.trim(),
+          organizerWebsite: profileData.website.trim(),
+          organizerAddress: profileData.address.trim(),
+          organizerVatNumber: profileData.vatNumber.trim(),
+          organizerAvatar: profileData.avatar,
+          avatar: profileData.avatar,
+          profilePicture: profileData.avatar
+        })
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || 'Failed to save profile');
+      }
+
+      const updated = await res.json().catch(() => ({}));
+      updateProfile({
+        name: [updated.firstName, updated.lastName].filter(Boolean).join(' '),
+        email: updated.email,
+        phone: updated.phoneNumber
+      });
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: unknown) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save profile');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePasswordChange = async () => {
@@ -133,6 +250,12 @@ export default function OrganizerSettingsPage() {
     { id: 'payments', label: 'Payments & Billing', icon: CreditCard },
     { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
   ];
+
+  const initials = [profileData.firstName, profileData.lastName]
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase())
+    .join('')
+    .slice(0, 2) || 'OR';
 
   return (
     <div className="min-h-screen bg-black">
@@ -212,17 +335,42 @@ export default function OrganizerSettingsPage() {
             {/* Profile Tab */}
             {activeTab === 'profile' && (
               <div className="space-y-6">
+                {(loadError || saveError) && (
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-sm text-red-300">
+                    {loadError || saveError}
+                  </div>
+                )}
+                {isLoadingProfile && (
+                  <div className="flex items-center gap-3 text-gray-400 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading profile details...
+                  </div>
+                )}
                 {/* Profile Picture */}
                 <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
                   <h2 className="text-white font-bold text-xl mb-6">Profile Picture</h2>
                   <div className="flex items-center gap-6">
                     <div className="relative">
-                      <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center">
-                        <span className="text-white font-bold text-2xl">AM</span>
+                      <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+                        {profileData.avatar ? (
+                          <img src={profileData.avatar} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-white font-bold text-2xl">{initials}</span>
+                        )}
                       </div>
-                      <button className="absolute bottom-0 right-0 p-2 bg-purple-600 hover:bg-purple-500 rounded-full transition-colors">
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute bottom-0 right-0 p-2 bg-purple-600 hover:bg-purple-500 rounded-full transition-colors"
+                      >
                         <Camera className="w-4 h-4 text-white" />
                       </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleAvatarUpload(e.target.files?.[0])}
+                      />
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white font-semibold mb-2">Update your photo</h3>
@@ -230,11 +378,17 @@ export default function OrganizerSettingsPage() {
                         JPG, PNG or GIF. Max 2MB.
                       </p>
                       <div className="flex gap-3">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors">
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
                           <Upload className="w-4 h-4" />
                           Upload Photo
                         </button>
-                        <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors">
+                        <button
+                          onClick={() => setProfileData({ ...profileData, avatar: null })}
+                          className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        >
                           Remove
                         </button>
                       </div>
@@ -386,8 +540,8 @@ export default function OrganizerSettingsPage() {
                 {/* Save Button */}
                 <div className="flex justify-end">
                   <button
-                    onClick={handleSave}
-                    disabled={isSaving}
+                    onClick={handleProfileSave}
+                    disabled={isSaving || isLoadingProfile}
                     className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-semibold transition-colors disabled:opacity-50"
                   >
                     {isSaving ? (

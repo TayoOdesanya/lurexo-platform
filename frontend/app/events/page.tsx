@@ -311,7 +311,7 @@ useEffect(() => {
                                                     {/* Organizer Info - now safe (no nested <a> inside <a>) */}
                                                     {event.organizer && (
                                                         <Link
-                                                            href={`/organizers/${event.organizer.username}`}
+                                                            href={`/organizer/${event.organizer.id || event.organizer.username}`}
                                                             onClick={(e) => e.stopPropagation()}
                                                             className="flex items-center gap-2 mb-3 group/organizer"
                                                         >

@@ -31,6 +31,11 @@ model User {
   organizerName          String?
   organizerUsername      String?
   organizerVerified      Boolean            @default(false)
+  organizerBio           String?            @map("organizer_bio")
+  organizerCompanyName   String?            @map("organizer_company_name")
+  organizerWebsite       String?            @map("organizer_website")
+  organizerAddress       String?            @map("organizer_address")
+  organizerVatNumber     String?            @map("organizer_vat_number")
   avatar                 String?
   username               String?            @unique
   verified               Boolean            @default(false)
