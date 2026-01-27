@@ -33,6 +33,7 @@ import {
   Clock,
   DollarSign,
   Zap,
+  TrendingUp,
   Settings as SettingsIcon,
   LogOut,
   Download,
@@ -99,6 +100,21 @@ export default function OrganizerSettingsPage() {
     minimumPayout: 100
   });
 
+  // Verification status data
+  const [verificationData, setVerificationData] = useState({
+    status: 'unverified', // 'unverified' | 'pending' | 'verified' | 'rejected'
+    submittedAt: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    verifiedBadgeActive: false,
+    documentsSubmitted: {
+      photoId: false,
+      proofOfAddress: false,
+      selfieWithId: false,
+      businessDoc: false,
+    }
+  });
+
   const handleSave = async () => {
     setIsSaving(true);
     // Simulate API call
@@ -127,12 +143,13 @@ export default function OrganizerSettingsPage() {
   };
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'account', label: 'Account & Security', icon: Lock },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'payments', label: 'Payments & Billing', icon: CreditCard },
-    { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
-  ];
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'verification', label: 'Verification', icon: Shield },
+  { id: 'account', label: 'Account & Security', icon: Lock },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'payments', label: 'Payments & Billing', icon: CreditCard },
+  { id: 'preferences', label: 'Preferences', icon: SettingsIcon }
+];
 
   return (
     <div className="min-h-screen bg-black">
@@ -974,6 +991,328 @@ export default function OrganizerSettingsPage() {
                 </div>
               </div>
             )}
+
+            {/* Verification Tab */}
+            {activeTab === 'verification' && (
+              <div className="space-y-6">
+                {/* STATUS: UNVERIFIED */}
+                {verificationData.status === 'unverified' && (
+                  <>
+                    {/* Main Status Card */}
+                    <div className="bg-gradient-to-br from-gray-900 to-gray-800 border-2 border-gray-700 rounded-2xl p-8">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="p-3 bg-gray-800 rounded-xl border border-gray-700">
+                          <Shield className="w-8 h-8 text-gray-500" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-white font-bold text-2xl mb-2">
+                            Your Account is Unverified
+                          </h2>
+                          <p className="text-gray-400">
+                            Get verified to unlock instant event approval, priority support, and a trusted organizer badge
+                          </p>
+                        </div>
+                      </div>
+
+                      <Link
+                        href="/organizer/verification/apply"
+                        className="flex items-center justify-center gap-2 w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-purple-500/30"
+                      >
+                        <Shield className="w-6 h-6" />
+                        Apply for Verification
+                        <ChevronRight className="w-6 h-6" />
+                      </Link>
+                    </div>
+
+                    {/* Benefits Grid */}
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+                      <h3 className="text-white font-bold text-xl mb-6">Benefits of Verification</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-4 p-4 bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                          <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                            <Zap className="w-6 h-6 text-purple-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-white font-semibold mb-1">Instant Event Approval</h4>
+                            <p className="text-gray-400 text-sm">
+                              Skip the review queue - verified organizers with good history get events approved automatically
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-4 p-4 bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                          <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                            <Check className="w-6 h-6 text-emerald-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-white font-semibold mb-1">Verified Badge</h4>
+                            <p className="text-gray-400 text-sm">
+                              Display a verified checkmark on your profile and events to build trust with attendees
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-4 p-4 bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                          <div className="p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                            <TrendingUp className="w-6 h-6 text-blue-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-white font-semibold mb-1">Higher Trust</h4>
+                            <p className="text-gray-400 text-sm">
+                              Verified organizers see higher ticket sales and lower refund rates from increased buyer confidence
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-4 p-4 bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                          <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                            <Zap className="w-6 h-6 text-amber-400" />
+                          </div>
+                          <div>
+                            <h4 className="text-white font-semibold mb-1">Priority Support</h4>
+                            <p className="text-gray-400 text-sm">
+                              Get faster response times and dedicated support from our team when you need help
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* What You'll Need */}
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+                      <h3 className="text-white font-bold text-xl mb-6">What You'll Need</h3>
+                      
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-medium">Government-Issued Photo ID</p>
+                            <p className="text-gray-400 text-sm">Passport, driver's license, or national ID card</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-medium">Proof of Address</p>
+                            <p className="text-gray-400 text-sm">Recent utility bill or bank statement (within last 3 months)</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-medium">Selfie with ID</p>
+                            <p className="text-gray-400 text-sm">Clear photo of you holding your ID next to your face</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-medium">Business Documents (Optional)</p>
+                            <p className="text-gray-400 text-sm">Company registration or business license if operating as a business</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <p className="text-blue-300 text-sm">
+                          ⏱️ <strong>Processing Time:</strong> Most applications are reviewed within 2-3 business days
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* STATUS: PENDING */}
+                {verificationData.status === 'pending' && (
+                  <>
+                    <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-2 border-amber-500/30 rounded-2xl p-8">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="p-3 bg-amber-500/20 rounded-xl border border-amber-500/30">
+                          <Clock className="w-8 h-8 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-white font-bold text-2xl mb-2">
+                            Verification Under Review
+                          </h2>
+                          <p className="text-amber-200">
+                            Your application is being reviewed by our team. You'll receive an email once the review is complete.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Calendar className="w-4 h-4 text-gray-400" />
+                            <p className="text-gray-400 text-sm">Submitted</p>
+                          </div>
+                          <p className="text-white font-semibold">
+                            {verificationData.submittedAt ? new Date(verificationData.submittedAt).toLocaleDateString('en-GB') : 'N/A'}
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-gray-400" />
+                            <p className="text-gray-400 text-sm">Status</p>
+                          </div>
+                          <p className="text-amber-400 font-semibold">Under Review</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-blue-300 font-semibold mb-2">Review Process</p>
+                          <p className="text-blue-200/80 text-sm leading-relaxed">
+                            Our team typically reviews applications within 2-3 business days. You'll receive an email notification once the review is complete.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* STATUS: VERIFIED */}
+                {verificationData.status === 'verified' && (
+                  <>
+                    <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border-2 border-emerald-500/30 rounded-2xl p-8">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
+                          <Check className="w-8 h-8 text-emerald-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-white font-bold text-2xl">
+                              Account Verified
+                            </h2>
+                            <div className="flex items-center gap-1 px-3 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+                              <Check className="w-4 h-4 text-emerald-400" />
+                              <span className="text-emerald-400 text-sm font-semibold">Verified</span>
+                            </div>
+                          </div>
+                          <p className="text-emerald-200">
+                            Your account has been successfully verified. You now have access to all premium features.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                          <p className="text-gray-400 text-sm mb-1">Verified On</p>
+                          <p className="text-white font-semibold">
+                            {verificationData.reviewedAt ? new Date(verificationData.reviewedAt).toLocaleDateString('en-GB') : 'N/A'}
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                          <p className="text-gray-400 text-sm mb-1">Badge Status</p>
+                          <p className="text-emerald-400 font-semibold">Active</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+                      <h3 className="text-white font-bold text-xl mb-6">Your Active Benefits</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                          <Zap className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-semibold mb-1">Events May Be Auto-Approved</p>
+                            <p className="text-gray-400 text-sm">Your events with clean content go live instantly</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                          <Check className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-semibold mb-1">Verified Badge on Profile</p>
+                            <p className="text-gray-400 text-sm">Displayed on all your events and public profile</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                          <Zap className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-semibold mb-1">Priority Support Access</p>
+                            <p className="text-gray-400 text-sm">Faster response times from our support team</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
+                          <TrendingUp className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-white font-semibold mb-1">Increased Trust</p>
+                            <p className="text-gray-400 text-sm">Higher conversion rates from buyer confidence</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* STATUS: REJECTED */}
+                {verificationData.status === 'rejected' && (
+                  <>
+                    <div className="bg-gradient-to-br from-red-500/10 to-rose-500/10 border-2 border-red-500/30 rounded-2xl p-8">
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className="p-3 bg-red-500/20 rounded-xl border border-red-500/30">
+                          <X className="w-8 h-8 text-red-400" />
+                        </div>
+                        <div className="flex-1">
+                          <h2 className="text-white font-bold text-2xl mb-2">
+                            Verification Request Needs Attention
+                          </h2>
+                          <p className="text-red-200">
+                            We were unable to verify your account with the information provided. Please review the reason below and reapply.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6">
+                        <div className="flex items-start gap-3 mb-3">
+                          <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                          <div>
+                            <p className="text-red-300 font-semibold mb-2">Reason for Rejection:</p>
+                            <p className="text-red-200/90 leading-relaxed">
+                              {verificationData.rejectionReason || 
+                                "The documents provided could not be verified. Please ensure all documents are clear, valid, and match the information provided."
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Link
+                        href="/organizer/verification/apply"
+                        className="flex items-center justify-center gap-2 p-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 rounded-xl text-white font-semibold transition-all shadow-lg shadow-purple-500/30"
+                      >
+                        <Shield className="w-5 h-5" />
+                        Reapply for Verification
+                      </Link>
+
+                      <Link
+                        href="/organizer/support"
+                        className="flex items-center justify-center gap-2 p-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-white font-semibold transition-colors"
+                      >
+                        <Mail className="w-5 h-5" />
+                        Contact Support
+                      </Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
           </main>
         </div>
       </div>
