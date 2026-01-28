@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 export default function Footer() {
   const { isDarkMode } = useTheme();
+  const currentYear = new Date().getFullYear();
 
   // Theme classes
   const bgSecondary = isDarkMode ? 'bg-gray-900' : 'bg-white';
@@ -17,7 +18,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <div>
-            <h4 className={`${text} font-bold mb-4`}>Abbbbbbbbout</h4>
+            <h4 className={`${text} font-bold mb-4`}>About</h4>
             <ul className="space-y-2">
               <li><Link href="/about" className={`${textSecondary} hover:${text} transition-colors`}>About Lurexo</Link></li>
               <li><Link href="/how-it-works" className={`${textSecondary} hover:${text} transition-colors`}>How it Works</Link></li>
@@ -58,8 +59,8 @@ export default function Footer() {
         </div>
 
         <div className={`pt-8 border-t ${border} text-center ${textSecondary} text-sm`}>
-          <p>© 2025 Lurexo • Made for real fans</p>
-          <p className="mt-2 text-xs opacity-70">Deploy marker: v2</p>
+          <p>{`\u00A9 ${currentYear} Lurexo \u2022 Made for real fans`}</p>
+          <p className="mt-2 text-xs opacity-70">Version: v0.1</p>
         </div>
       </div>
     </footer>

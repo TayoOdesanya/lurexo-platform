@@ -4,9 +4,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useAuth } from "../context/AuthContext";
 import { useRouter } from 'next/navigation';
 import Footer from '@/components/Footer';
+import Navigation from '@/components/Navigation';
 import { resolveEventImageSrc } from '@/lib/images';
 
 
@@ -20,10 +20,6 @@ export default function EventsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [mounted, setMounted] = useState(false);
-
-const { user } = useAuth();
-const isSignedIn = !!user;
-const isOrganizer = (user?.role || "").toUpperCase() === "ORGANIZER" || (user?.role || "").toUpperCase() === "ADMIN";
 
 const toNumber = (value: unknown) => {
   const n = typeof value === 'string' ? Number(value) : (value as number);
@@ -105,77 +101,10 @@ useEffect(() => {
 
     return (
         <div className={`min-h-screen ${bgPrimary}`}>
+            <Navigation />
             {/* Hero Header */}
             <header className={`relative overflow-hidden ${bgGradient}`}>
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS1vcGFjaXR5PSIwLjA1IiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-40"></div>
-
-<nav className="relative z-10 max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
-  {/* Logo -> Home */}
-  <Link href="/" className="flex items-center space-x-2">
-    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-      <span className="text-white font-bold text-xl">L</span>
-    </div>
-    <span className="text-white font-bold text-2xl tracking-tight">Lurexo</span>
-  </Link>
-
-  {/* Middle links */}
-  <div className="hidden md:flex items-center space-x-8">
-    <Link href="/events" className="text-gray-200 hover:text-white transition-colors">
-      Events
-    </Link>
-    <Link href="/how-it-works" className="text-gray-200 hover:text-white transition-colors">
-      How it works
-    </Link>
-    <Link href="/support" className="text-gray-200 hover:text-white transition-colors">
-      Support
-    </Link>
-
-    {/* Organizer-only link */}
-    {isSignedIn && isOrganizer && (
-      <Link href="/organizer/dashboard" className="text-gray-200 hover:text-white transition-colors">
-        Organizer Dashboard
-      </Link>
-    )}
-  </div>
-
-  {/* Right actions */}
-  <div className="flex items-center space-x-4">
-    <button
-      onClick={() => setIsDarkMode(!isDarkMode)}
-      className="p-2.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all"
-      aria-label="Toggle theme"
-    >
-      {isDarkMode ? (
-        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      ) : (
-        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-        </svg>
-      )}
-    </button>
-
-    {!isSignedIn ? (
-      <>
-        <Link href="/login" className="text-white hover:text-gray-300 transition-colors">
-          Sign in
-        </Link>
-        <Link
-          href="/signup"
-          className="bg-white text-black px-6 py-2.5 rounded-full font-semibold hover:bg-gray-100 transition-all hover:scale-105"
-        >
-          Get started
-        </Link>
-      </>
-    ) : (
-      // Optional: show a small “signed in” indicator (or remove this span entirely)
-      <span className="text-gray-200 text-sm hidden sm:inline">
-        {user?.name || user?.email}
-      </span>
-    )}
-  </div>
-</nav>
 
                 <div className="relative z-10 max-w-7xl mx-auto px-6 py-20 pb-32">
                     <h1 className="text-6xl md:text-7xl font-bold text-white mb-6 leading-tight">
