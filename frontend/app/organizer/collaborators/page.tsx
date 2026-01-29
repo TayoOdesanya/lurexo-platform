@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   UserPlus,
@@ -20,6 +20,9 @@ import {
   Copy,
   Calendar,
 } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface Collaborator {
   id: string;
@@ -46,86 +49,88 @@ interface Collaborator {
   };
 }
 
+type EventSummary = {
+  id: string;
+  name: string;
+  date: string;
+};
+
+type CollaboratorApi = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  addedDate?: string;
+  lastActive?: string | null;
+  has2FA?: boolean;
+  assignedEvents?: string[];
+  paymentSplit?: { enabled: boolean; percentage: number; eventId: string }[];
+  permissions?: Collaborator['permissions'] | null;
+  inviteToken?: string | null;
+  inviteExpiresAt?: string | null;
+  createdUser?: boolean;
+};
+
+function normalizeRole(role: string): Collaborator['role'] {
+  const v = (role || '').toUpperCase().replace(/-/g, '_');
+  switch (v) {
+    case 'OWNER':
+      return 'owner';
+    case 'ADMIN':
+      return 'admin';
+    case 'EVENT_MANAGER':
+      return 'event-manager';
+    case 'MARKETING_LEAD':
+      return 'marketing-lead';
+    case 'PROMOTER':
+      return 'promoter';
+    case 'SECURITY':
+      return 'security';
+    case 'STAFF':
+    default:
+      return 'staff';
+  }
+}
+
+function normalizeStatus(status: string): Collaborator['status'] {
+  const v = (status || '').toUpperCase();
+  switch (v) {
+    case 'ACTIVE':
+      return 'active';
+    case 'SUSPENDED':
+      return 'suspended';
+    case 'PENDING':
+    default:
+      return 'pending';
+  }
+}
+
+function formatShortDate(dateString: string) {
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return dateString;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function formatRelativeTime(dateString?: string | null) {
+  if (!dateString) return 'Never';
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return 'Unknown';
+  const diffMs = Date.now() - d.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 60) return `${Math.max(1, minutes)} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+  return formatShortDate(dateString);
+}
+
 const CollaboratorsPage: React.FC = () => {
-  const [collaborators, setCollaborators] = useState<Collaborator[]>([
-    {
-      id: '1',
-      name: 'Alex Morgan',
-      email: 'alex@lurexo.com',
-      role: 'owner',
-      status: 'active',
-      addedDate: '2024-01-15',
-      lastActive: '2 hours ago',
-      has2FA: true,
-      permissions: {
-        manageEvents: true,
-        viewAnalytics: true,
-        manageSales: true,
-        accessDoor: true,
-        sendMarketing: true,
-        manageTeam: true,
-      },
-    },
-    {
-      id: '2',
-      name: 'Sarah Johnson',
-      email: 'sarah.j@gmail.com',
-      role: 'event-manager',
-      status: 'active',
-      addedDate: '2024-02-20',
-      lastActive: '1 day ago',
-      has2FA: true,
-      assignedEvents: ['Summer Music Festival', 'Winter Showcase'],
-      permissions: {
-        manageEvents: true,
-        viewAnalytics: true,
-        manageSales: false,
-        accessDoor: true,
-        sendMarketing: false,
-        manageTeam: false,
-      },
-    },
-    {
-      id: '3',
-      name: 'Mike Chen',
-      email: 'mike.chen@promotions.co',
-      role: 'promoter',
-      status: 'active',
-      addedDate: '2024-03-10',
-      lastActive: '3 days ago',
-      has2FA: false,
-      assignedEvents: ['Summer Music Festival'],
-      paymentSplit: [
-        { enabled: true, percentage: 10, eventId: 'summer-fest-2025' }
-      ],
-      permissions: {
-        manageEvents: false,
-        viewAnalytics: true,
-        manageSales: false,
-        accessDoor: false,
-        sendMarketing: true,
-        manageTeam: false,
-      },
-    },
-    {
-      id: '4',
-      name: 'James Wilson',
-      email: 'james.w@security.com',
-      role: 'security',
-      status: 'pending',
-      addedDate: '2024-11-28',
-      has2FA: false,
-      assignedEvents: ['Summer Music Festival'],
-      permissions: {
-        manageEvents: false,
-        viewAnalytics: false,
-        manageSales: false,
-        accessDoor: true,
-        sendMarketing: false,
-        manageTeam: false,
-      },
-    },
-  ]);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [events, setEvents] = useState<EventSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEmailPreview, setShowEmailPreview] = useState(false);
@@ -185,11 +190,95 @@ const CollaboratorsPage: React.FC = () => {
     },
   ];
 
-  const mockEvents = [
-    { id: 'summer-fest-2025', name: 'Summer Music Festival 2025', date: '2025-07-15' },
-    { id: 'winter-showcase', name: 'Winter Showcase', date: '2025-12-20' },
-    { id: 'spring-concert', name: 'Spring Concert Series', date: '2025-04-10' },
-  ];
+  const eventsById = useMemo(() => {
+    return events.reduce<Record<string, EventSummary>>((acc, item) => {
+      acc[item.id] = item;
+      return acc;
+    }, {});
+  }, [events]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          setError('You are not logged in.');
+          setLoading(false);
+          return;
+        }
+
+        const [collabRes, eventsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/collaborators`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          }),
+          fetch(`${API_BASE_URL}/events/my-events`, {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
+          }),
+        ]);
+
+        if (!collabRes.ok) {
+          const txt = await collabRes.text().catch(() => '');
+          throw new Error(txt || `Failed to load collaborators (${collabRes.status})`);
+        }
+
+        if (!eventsRes.ok) {
+          const txt = await eventsRes.text().catch(() => '');
+          throw new Error(txt || `Failed to load events (${eventsRes.status})`);
+        }
+
+        const collabJson = (await collabRes.json()) as CollaboratorApi[];
+        const eventsJson = (await eventsRes.json()) as any[];
+
+        if (cancelled) return;
+
+        const normalizedCollaborators = collabJson.map((collab) => ({
+          id: collab.id,
+          name: collab.name,
+          email: collab.email,
+          role: normalizeRole(collab.role),
+          status: normalizeStatus(collab.status),
+          addedDate: collab.addedDate ? formatShortDate(collab.addedDate) : '',
+          lastActive: formatRelativeTime(collab.lastActive),
+          has2FA: !!collab.has2FA,
+          assignedEvents: collab.assignedEvents || [],
+          paymentSplit: collab.paymentSplit || [],
+          permissions: collab.permissions || {
+            manageEvents: false,
+            viewAnalytics: false,
+            manageSales: false,
+            accessDoor: false,
+            sendMarketing: false,
+            manageTeam: false,
+          },
+        }));
+
+        const normalizedEvents = eventsJson.map((event) => ({
+          id: event.id,
+          name: event.title,
+          date: formatShortDate(event.eventDate),
+        }));
+
+        setCollaborators(normalizedCollaborators);
+        setEvents(normalizedEvents);
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? 'Failed to load collaborators');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getRoleBadgeColor = (role: string) => {
     const colors: Record<string, string> = {
@@ -216,35 +305,103 @@ const CollaboratorsPage: React.FC = () => {
   const filteredCollaborators = collaborators.filter((collab) => {
     const matchesSearch =
       collab.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      collab.email.toLowerCase().includes(searchQuery.toLowerCase());
+      (collab.email || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = filterRole === 'all' || collab.role === filterRole;
     return matchesSearch && matchesRole;
   });
 
-  const handleInvite = () => {
-    // TODO: Send invite email via API
-    console.log('Inviting:', inviteForm);
-    setShowInviteModal(false);
-    setShowEmailPreview(false);
-    // Reset form
-    setInviteForm({
-      email: '',
-      name: '',
-      role: 'staff',
-      assignedEvents: [],
-      tempAccess: false,
-      accessStartDate: '',
-      accessEndDate: '',
-      paymentSplitEnabled: false,
-      paymentSplitPercentage: 0,
-      paymentSplitEvent: '',
-    });
+  const handleInvite = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setError('You are not logged in.');
+        return;
+      }
+
+      const payload = {
+        email: inviteForm.email.trim(),
+        name: inviteForm.name.trim(),
+        role: inviteForm.role,
+        assignedEvents: inviteForm.assignedEvents,
+        tempAccess: inviteForm.tempAccess,
+        accessStartDate: inviteForm.accessStartDate || null,
+        accessEndDate: inviteForm.accessEndDate || null,
+        paymentSplitEnabled: inviteForm.paymentSplitEnabled,
+        paymentSplitPercentage: inviteForm.paymentSplitPercentage,
+        paymentSplitEvent: inviteForm.paymentSplitEvent || null,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/collaborators`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(txt || `Failed to send invite (${res.status})`);
+      }
+
+      const created = (await res.json()) as CollaboratorApi;
+      const normalized: Collaborator = {
+        id: created.id,
+        name: created.name,
+        email: created.email,
+        role: normalizeRole(created.role),
+        status: normalizeStatus(created.status),
+        addedDate: created.addedDate ? formatShortDate(created.addedDate) : formatShortDate(new Date().toISOString()),
+        lastActive: formatRelativeTime(created.lastActive),
+        has2FA: !!created.has2FA,
+        assignedEvents: created.assignedEvents || [],
+        paymentSplit: created.paymentSplit || [],
+        permissions: created.permissions || {
+          manageEvents: false,
+          viewAnalytics: false,
+          manageSales: false,
+          accessDoor: false,
+          sendMarketing: false,
+          manageTeam: false,
+        },
+      };
+
+      setCollaborators((prev) => [normalized, ...prev]);
+      setShowInviteModal(false);
+      setShowEmailPreview(false);
+      setError(null);
+      setInviteForm({
+        email: '',
+        name: '',
+        role: 'staff',
+        assignedEvents: [],
+        tempAccess: false,
+        accessStartDate: '',
+        accessEndDate: '',
+        paymentSplitEnabled: false,
+        paymentSplitPercentage: 0,
+        paymentSplitEvent: '',
+      });
+    } catch (e: any) {
+      setError(e?.message ?? 'Failed to invite collaborator');
+    }
   };
 
   const selectedRole = roles.find(r => r.id === inviteForm.role);
 
   return (
     <div className="space-y-6">
+      {loading && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-gray-300 text-sm">
+          Loading collaborators…
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-red-300 text-sm">
+          {error}
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -386,7 +543,9 @@ const CollaboratorsPage: React.FC = () => {
                     <td className="px-6 py-4">
                       {collab.assignedEvents && collab.assignedEvents.length > 0 ? (
                         <div className="text-sm">
-                          <p className="text-white">{collab.assignedEvents[0]}</p>
+                          <p className="text-white">
+                            {eventsById[collab.assignedEvents[0]]?.name || collab.assignedEvents[0]}
+                          </p>
                           {collab.assignedEvents.length > 1 && (
                             <p className="text-gray-400">+{collab.assignedEvents.length - 1} more</p>
                           )}
@@ -532,26 +691,32 @@ const CollaboratorsPage: React.FC = () => {
                 <label className="text-white font-medium mb-2 block">Assign to Events (Optional)</label>
                 <p className="text-gray-400 text-sm mb-3">Leave empty for access to all events</p>
                 <div className="space-y-2">
-                  {mockEvents.map((event) => (
-                    <label key={event.id} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={inviteForm.assignedEvents.includes(event.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setInviteForm({ ...inviteForm, assignedEvents: [...inviteForm.assignedEvents, event.id] });
-                          } else {
-                            setInviteForm({ ...inviteForm, assignedEvents: inviteForm.assignedEvents.filter(id => id !== event.id) });
-                          }
-                        }}
-                        className="w-4 h-4 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div className="flex-1">
-                        <p className="text-white font-medium text-sm">{event.name}</p>
-                        <p className="text-gray-400 text-xs">{event.date}</p>
-                      </div>
-                    </label>
-                  ))}
+                  {events.length === 0 ? (
+                    <div className="text-gray-500 text-sm bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+                      No events found. Create an event first to assign collaborators.
+                    </div>
+                  ) : (
+                    events.map((event) => (
+                      <label key={event.id} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-700 cursor-pointer transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={inviteForm.assignedEvents.includes(event.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setInviteForm({ ...inviteForm, assignedEvents: [...inviteForm.assignedEvents, event.id] });
+                            } else {
+                              setInviteForm({ ...inviteForm, assignedEvents: inviteForm.assignedEvents.filter(id => id !== event.id) });
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-600 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <p className="text-white font-medium text-sm">{event.name}</p>
+                          <p className="text-gray-400 text-xs">{event.date}</p>
+                        </div>
+                      </label>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -617,10 +782,10 @@ const CollaboratorsPage: React.FC = () => {
                         >
                           <option value="">Select event...</option>
                           {inviteForm.assignedEvents.length > 0 
-                            ? mockEvents.filter(e => inviteForm.assignedEvents.includes(e.id)).map(event => (
+                            ? events.filter(e => inviteForm.assignedEvents.includes(e.id)).map(event => (
                                 <option key={event.id} value={event.id}>{event.name}</option>
                               ))
-                            : mockEvents.map(event => (
+                            : events.map(event => (
                                 <option key={event.id} value={event.id}>{event.name}</option>
                               ))
                           }
@@ -733,8 +898,8 @@ const CollaboratorsPage: React.FC = () => {
                     <p className="text-gray-700 mb-2">You'll have access to:</p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1">
                       {inviteForm.assignedEvents.map(eventId => {
-                        const event = mockEvents.find(e => e.id === eventId);
-                        return event ? <li key={eventId}>{event.name}</li> : null;
+                        const event = eventsById[eventId];
+                        return event ? <li key={eventId}>{event.name}</li> : <li key={eventId}>{eventId}</li>;
                       })}
                     </ul>
                   </div>

@@ -16,6 +16,8 @@ import { appSettingsConfig } from './config/appsettings';
 import { GuestListModule } from './guest-list/guest-list.module';
 import { OrganizersModule } from './organizers/organizers.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { CollaboratorsModule } from './collaborators/collaborators.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { TicketsModule } from './tickets/tickets.module';
     GuestListModule,
     OrganizersModule,
     TicketsModule,
+    CollaboratorsModule,
+    EmailModule,
   ],
   providers: [
     {
