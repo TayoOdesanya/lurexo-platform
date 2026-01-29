@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import nodemailer, { Transporter } from 'nodemailer';
+import * as nodemailer from 'nodemailer';
+import { Transporter } from 'nodemailer';
 
 type InviteEmailPayload = {
   to: string;
@@ -43,15 +44,34 @@ export class EmailService {
 
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
+    const host = this.configService.get<string>('SMTP_HOST') || 'smtp.gmail.com';
+    const portRaw = this.configService.get<string>('SMTP_PORT');
+    const secureRaw = this.configService.get<string>('SMTP_SECURE');
+    const startTlsRaw = this.configService.get<string>('SMTP_USE_STARTTLS');
 
     if (!user || !pass) {
       throw new Error('SMTP_USER and SMTP_PASS must be set to send email.');
     }
 
+    const useStartTls = String(startTlsRaw ?? '')
+      .trim()
+      .toLowerCase() === 'true';
+    const secure =
+      String(secureRaw ?? '').trim().length > 0
+        ? String(secureRaw).trim().toLowerCase() === 'true'
+        : !useStartTls;
+    const port =
+      typeof portRaw === 'string' && portRaw.trim().length > 0
+        ? Number(portRaw)
+        : secure
+          ? 465
+          : 587;
+
     this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      host,
+      port,
+      secure,
+      requireTLS: useStartTls,
       auth: { user, pass },
     });
 

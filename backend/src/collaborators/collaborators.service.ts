@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCollaboratorDto } from './dto/create-collaborator.dto';
-import { CollaboratorRole } from '@prisma/client';
+import { CollaboratorRole, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { EmailService } from '../email/email.service';
@@ -206,6 +206,20 @@ export class CollaboratorsService {
       throw new BadRequestException('You cannot invite yourself as a collaborator.');
     }
 
+    const existing = await this.prisma.collaborator.findUnique({
+      where: {
+        userId_organizerId: {
+          userId: user.id,
+          organizerId,
+        },
+      },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException('Collaborator already exists for this organizer.');
+    }
+
     const role = normalizeRole(dto.role);
     const permissions = ROLE_PERMISSIONS[role];
 
@@ -314,8 +328,10 @@ export class CollaboratorsService {
         createdUser,
       };
     } catch (error: any) {
-      const msg = String(error?.message || '');
-      if (msg.includes('collaborators_userId_organizerId_key')) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
         throw new ConflictException('Collaborator already exists for this organizer.');
       }
       throw error;
