@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CompleteOrderDto } from './dto/complete-order.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -47,6 +48,16 @@ export class OrdersController {
   @Get(':id')
   findOne(@Param('id') id: string, @CurrentUser() user: any) {
     return this.ordersService.findOne(id, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/complete')
+  completeOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @Body() completeOrderDto: CompleteOrderDto,
+  ) {
+    return this.ordersService.completeOrderManual(id, user.id, completeOrderDto);
   }
 
   @Public()

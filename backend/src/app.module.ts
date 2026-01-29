@@ -15,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { appSettingsConfig } from './config/appsettings';
 import { GuestListModule } from './guest-list/guest-list.module';
 import { OrganizersModule } from './organizers/organizers.module';
+import { TicketsModule } from './tickets/tickets.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { OrganizersModule } from './organizers/organizers.module';
     HealthModule,
     GuestListModule,
     OrganizersModule,
+    TicketsModule,
   ],
   providers: [
     {

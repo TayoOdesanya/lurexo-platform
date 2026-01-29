@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CompleteOrderDto } from './dto/complete-order.dto';
 import Stripe from 'stripe';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -263,6 +264,126 @@ export class OrdersService {
     }
 
     return order;
+  }
+
+  async completeOrderManual(orderId: string, userId: string, completeOrderDto: CompleteOrderDto) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        event: {
+          include: {
+            ticketTiers: true,
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (order.userId !== userId) {
+      throw new ForbiddenException('You can only complete your own orders');
+    }
+
+    if (order.status === 'COMPLETED') {
+      return {
+        order,
+        tickets: await this.prisma.ticket.findMany({ where: { orderId: order.id } }),
+      };
+    }
+
+    let subtotal = 0;
+    const itemsWithTier = completeOrderDto.items.map((item) => {
+      const tier = order.event.ticketTiers.find((t) => t.id === item.tierId);
+      if (!tier) {
+        throw new NotFoundException(`Ticket tier ${item.tierId} not found`);
+      }
+      if (tier.status !== 'ACTIVE') {
+        throw new BadRequestException(`Ticket tier ${tier.name} is not available`);
+      }
+      const availableQuantity = tier.quantity - tier.quantitySold;
+      if (item.quantity > availableQuantity) {
+        throw new BadRequestException(
+          `Only ${availableQuantity} tickets available for ${tier.name}`,
+        );
+      }
+      if (item.quantity > tier.maxPerOrder) {
+        throw new BadRequestException(
+          `Maximum ${tier.maxPerOrder} tickets allowed per order for ${tier.name}`,
+        );
+      }
+
+      subtotal += tier.price * item.quantity;
+      return { item, tier };
+    });
+
+    const serviceFeePercentage = this.configService.get<number>('STRIPE_SERVICE_FEE_PERCENTAGE') || 4;
+    const serviceFee = Math.round(subtotal * (serviceFeePercentage / 100));
+    const totalAmount = subtotal + serviceFee;
+    const totalTickets = completeOrderDto.items.reduce((sum, i) => sum + i.quantity, 0);
+    const serviceFeePerTicket = totalTickets > 0 ? Math.round(serviceFee / totalTickets) : 0;
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+          paymentMethod: completeOrderDto.paymentMethod ?? 'manual',
+          subtotal,
+          serviceFee,
+          totalAmount,
+        },
+      });
+
+      const tickets = [];
+      let ticketIndex = 1;
+
+      for (const { item, tier } of itemsWithTier) {
+        for (let i = 0; i < item.quantity; i++) {
+          const ticketNumber = `${order.orderNumber}-T${ticketIndex}`;
+          const qrToken = await this.generateQRToken(order.id, ticketNumber);
+          ticketIndex += 1;
+
+          const ticket = await tx.ticket.create({
+            data: {
+              orderId: order.id,
+              eventId: order.eventId,
+              tierId: tier.id,
+              currentOwnerId: order.userId,
+              originalOwnerId: order.userId,
+              ticketNumber,
+              qrCode: qrToken,
+              faceValue: tier.price,
+              pricePaid: tier.price + serviceFeePerTicket,
+              status: 'VALID',
+            },
+          });
+
+          tickets.push(ticket);
+        }
+
+        await tx.ticketTier.update({
+          where: { id: tier.id },
+          data: { quantitySold: { increment: item.quantity } },
+        });
+      }
+
+      await tx.event.update({
+        where: { id: order.eventId },
+        data: {
+          ticketsSold: { increment: totalTickets },
+          totalRevenue: { increment: totalAmount },
+          organizerRevenue: { increment: subtotal },
+          platformRevenue: { increment: serviceFee },
+        },
+      });
+
+      return { updatedOrder, tickets };
+    });
+
+    return result;
   }
 
   private async generateQRToken(orderId: string, ticketNumber: string): Promise<string> {

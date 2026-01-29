@@ -3,6 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check, ChevronDown, ChevronUp, Lock, CreditCard, Calendar, MapPin, Shield, AlertCircle } from 'lucide-react';
+import { getApiBaseUrl } from '@/lib/apiBase';
+
+const API_BASE_URL = getApiBaseUrl();
+
+function getAccessTokenClient(): string | null {
+  try {
+    return localStorage.getItem('authToken') ?? localStorage.getItem('accessToken');
+  } catch {
+    return null;
+  }
+}
 
 const defaultOrder = {
   event: {
@@ -14,6 +25,7 @@ const defaultOrder = {
   },
   tickets: [
     {
+      tierId: 'standard',
       tier: 'General Admission',
       quantity: 2,
       price: 85.00,
@@ -38,7 +50,10 @@ export default function CheckoutPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showCheckmark, setShowCheckmark] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [orderNumber] = useState(`LRX${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
+  const [orderNumber, setOrderNumber] = useState(`LRX${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [createdTickets, setCreatedTickets] = useState<any[]>([]);
+  const [orderError, setOrderError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -69,6 +84,7 @@ export default function CheckoutPage() {
       const storedData = localStorage.getItem('lurexo_checkout');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
+        const tierId = parsedData.tierId || tier;
         setOrderData({
           event: {
             id: parsedData.eventId,
@@ -78,6 +94,7 @@ export default function CheckoutPage() {
             location: parsedData.eventLocation
           },
           tickets: [{
+            tierId,
             tier: parsedData.tierName,
             quantity: parseInt(qty),
             price: parseFloat(price),
@@ -92,6 +109,7 @@ export default function CheckoutPage() {
       const storedData = localStorage.getItem('lurexo_checkout');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
+        const tierId = parsedData.tierId || parsedData.tier;
         setOrderData({
           event: {
             id: parsedData.eventId,
@@ -101,6 +119,7 @@ export default function CheckoutPage() {
             location: parsedData.eventLocation
           },
           tickets: [{
+            tierId,
             tier: parsedData.tierName,
             quantity: parsedData.quantity,
             price: parsedData.ticketPrice,
@@ -119,6 +138,9 @@ export default function CheckoutPage() {
   const text = isDarkMode ? 'text-white' : 'text-gray-900';
   const textSecondary = isDarkMode ? 'text-gray-400' : 'text-gray-600';
   const border = isDarkMode ? 'border-gray-800' : 'border-gray-200';
+  const primaryTicket = createdTickets[0];
+  const displayTicketNumber = primaryTicket?.ticketNumber ?? orderNumber;
+  const displayQrCode = primaryTicket?.qrCode ?? null;
 
   const steps = [
     { number: 1, title: 'Contact', icon: '📧' },
@@ -214,27 +236,104 @@ export default function CheckoutPage() {
     }
   };
 
-  const handlePayment = () => {
+  const handlePayment = async () => {
+    if (isProcessing) return;
+    setOrderError(null);
+
+    const accessToken = getAccessTokenClient();
+    if (!accessToken) {
+      setOrderError('Please sign in to complete your purchase.');
+      return;
+    }
+
+    const items = orderData.tickets
+      .map((ticket) => ({
+        tierId: ticket.tierId,
+        quantity: ticket.quantity,
+      }))
+      .filter((item) => item.tierId && item.quantity);
+
+    if (items.length === 0) {
+      setOrderError('Missing ticket tier information. Please restart checkout.');
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingProgress(0);
 
     const interval = setInterval(() => {
-      setProcessingProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsProcessing(false);
-            setShowSuccess(true);
-            setShowCheckmark(true);
-            setTimeout(() => {
-              setShowConfetti(true);
-            }, 1500);
-          }, 500);
-          return 100;
-        }
-        return prev + 10;
-      });
+      setProcessingProgress((prev) => (prev >= 90 ? 90 : prev + 10));
     }, 200);
+
+    try {
+      const orderRes = await fetch(`${API_BASE_URL}/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          eventId: orderData.event.id,
+          items,
+          buyerEmail: formData.email,
+          buyerFirstName: formData.firstName,
+          buyerLastName: formData.lastName,
+        }),
+      });
+
+      if (!orderRes.ok) {
+        const txt = await orderRes.text().catch(() => '');
+        throw new Error(txt || 'Failed to create order');
+      }
+
+      const orderPayload = await orderRes.json();
+      const createdOrder = orderPayload?.order;
+
+      if (!createdOrder?.id) {
+        throw new Error('Order creation failed');
+      }
+
+      setOrderId(createdOrder.id);
+      if (createdOrder.orderNumber) {
+        setOrderNumber(createdOrder.orderNumber);
+      }
+
+      const completeRes = await fetch(`${API_BASE_URL}/orders/${createdOrder.id}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          items,
+          paymentMethod: 'card',
+        }),
+      });
+
+      if (!completeRes.ok) {
+        const txt = await completeRes.text().catch(() => '');
+        throw new Error(txt || 'Failed to finalize payment');
+      }
+
+      const completePayload = await completeRes.json();
+      setCreatedTickets(completePayload.tickets ?? []);
+
+      setProcessingProgress(100);
+      clearInterval(interval);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setShowSuccess(true);
+        setShowCheckmark(true);
+        setTimeout(() => {
+          setShowConfetti(true);
+        }, 1500);
+      }, 500);
+    } catch (error: any) {
+      clearInterval(interval);
+      setIsProcessing(false);
+      setProcessingProgress(0);
+      setOrderError(error?.message ?? 'Payment failed. Please try again.');
+    }
   };
 
   return (
@@ -454,8 +553,14 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="opacity-80">Ticket #</span>
-                      <span className="font-mono font-semibold">{orderNumber}</span>
+                      <span className="font-mono font-semibold">{displayTicketNumber}</span>
                     </div>
+                    {displayQrCode && (
+                      <div className="flex justify-between">
+                        <span className="opacity-80">QR Code</span>
+                        <span className="font-mono text-xs break-all text-right">{displayQrCode}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -803,6 +908,12 @@ export default function CheckoutPage() {
                     </span>
                   </label>
                 </div>
+
+                {orderError && (
+                  <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                    {orderError}
+                  </div>
+                )}
 
                 <button
                   onClick={handlePayment}
