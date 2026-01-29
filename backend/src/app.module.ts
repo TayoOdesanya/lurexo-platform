@@ -18,6 +18,7 @@ import { OrganizersModule } from './organizers/organizers.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { CollaboratorsModule } from './collaborators/collaborators.module';
 import { EmailModule } from './email/email.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { EmailModule } from './email/email.module';
     TicketsModule,
     CollaboratorsModule,
     EmailModule,
+    AdminModule,
   ],
   providers: [
     {

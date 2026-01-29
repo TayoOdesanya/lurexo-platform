@@ -2,8 +2,9 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import AdminHeader from './AdminHeader';
 import AdminSidebar from './AdminSidebar';
+import Navigation from '@/components/Navigation';
+import Footer from '@/components/Footer';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -40,19 +41,21 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // checkAdminAccess();
 }, [router, pathname]);
 
-    return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        <AdminHeader />
-        
-        <div className="flex">
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col">
+      <Navigation />
+
+      <div className="flex flex-1">
         <AdminSidebar />
-        
+
         <main className="flex-1 overflow-x-hidden">
-            <div className="p-6 lg:p-8">
+          <div className="p-6 lg:p-8">
             {children}
-            </div>
+          </div>
         </main>
-        </div>
+      </div>
+
+      <Footer />
     </div>
-    );
+  );
 }

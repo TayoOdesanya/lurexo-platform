@@ -43,21 +43,20 @@ export default function Navigation() {
             <Link href="/events" className={`${textSecondary} hover:${text} transition-colors`}>
               Events
             </Link>
-            {isOrganizer ? (
-              <Link href="/organizer/dashboard" className={`${textSecondary} hover:${text} transition-colors`}>
-                Dashboard
-              </Link>
-            ) : (
-              <Link href="/for-organizers" className={`${textSecondary} hover:${text} transition-colors`}>
-                For Organizers
-              </Link>
-            )}
+            <Link
+              href={isOrganizer ? "/organizer/dashboard" : "/dashboard"}
+              className={`${textSecondary} hover:${text} transition-colors`}
+            >
+              Dashboard
+            </Link>
             <Link href="/how-it-works" className={`${textSecondary} hover:${text} transition-colors`}>
               How it Works
             </Link>
-            <Link href="/support" className={`${textSecondary} hover:${text} transition-colors`}>
-              Support
-            </Link>
+            {isLoggedIn && (
+              <Link href="/admin/dashboard" className={`${textSecondary} hover:${text} transition-colors`}>
+                Admin
+              </Link>
+            )}
           </div>
 
           {/* Right Actions */}
@@ -121,29 +120,25 @@ export default function Navigation() {
             <Link href="/events" className={`block ${text} hover:text-purple-400`} onClick={() => setMobileMenuOpen(false)}>
               Events
             </Link>
-            {isOrganizer ? (
-              <Link
-                href="/organizer/dashboard"
-                className={`block ${text} hover:text-purple-400`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                href="/for-organizers"
-                className={`block ${text} hover:text-purple-400`}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                For Organizers
-              </Link>
-            )}
+            <Link
+              href={isOrganizer ? "/organizer/dashboard" : "/dashboard"}
+              className={`block ${text} hover:text-purple-400`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
             <Link href="/how-it-works" className={`block ${text} hover:text-purple-400`} onClick={() => setMobileMenuOpen(false)}>
               How it Works
             </Link>
-            <Link href="/support" className={`block ${text} hover:text-purple-400`} onClick={() => setMobileMenuOpen(false)}>
-              Support
-            </Link>
+            {isLoggedIn && (
+              <Link
+                href="/admin/dashboard"
+                className={`block ${text} hover:text-purple-400`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Admin
+              </Link>
+            )}
 
             {!isLoggedIn ? (
               <>
