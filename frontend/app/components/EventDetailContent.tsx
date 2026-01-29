@@ -42,6 +42,8 @@ type TicketTier = {
   price: number;
   serviceFee?: number;
   available?: number;
+  quantity?: number | null;
+  quantitySold?: number | null;
   features?: string[];
 };
 
@@ -198,11 +200,20 @@ function mapTicketTiers(event: EventDto | null): TicketTier[] {
       const feeRaw = toNumber(tier.serviceFee ?? 0);
       const price = Number.isFinite(priceRaw) ? priceRaw / 100 : 0;
       const serviceFee = Number.isFinite(feeRaw) ? feeRaw / 100 : 0;
+      const quantity = Number.isFinite(toNumber(tier.quantity)) ? Number(tier.quantity) : undefined;
+      const quantitySold = Number.isFinite(toNumber(tier.quantitySold)) ? Number(tier.quantitySold) : undefined;
+      const available =
+        tier.available ??
+        (Number.isFinite(quantity) && Number.isFinite(quantitySold)
+          ? Math.max(0, quantity - quantitySold)
+          : undefined);
       return {
         ...tier,
         price,
         serviceFee,
-        available: tier.available ?? undefined,
+        available,
+        quantity,
+        quantitySold,
       };
     });
   }
@@ -366,8 +377,30 @@ export default function EventDetailContent() {
   const selected = selectedTier ?? eventView?.ticketTiers[0];
   const totalPrice = selected ? (selected.price + (selected.serviceFee || 0)) * quantity : 0;
 
-  const availableTickets = Math.max(0, (eventView?.capacity || 0) - (eventView?.ticketsSold || 0));
-  const percentSold = eventView && eventView.capacity > 0 ? (eventView.ticketsSold / eventView.capacity) * 100 : 0;
+  const tierTotals = eventView?.ticketTiers.reduce(
+    (acc, tier) => {
+      const qty = Number.isFinite(Number(tier.quantity)) ? Number(tier.quantity) : 0;
+      const sold = Number.isFinite(Number(tier.quantitySold)) ? Number(tier.quantitySold) : 0;
+      const remaining = Number.isFinite(Number(tier.available))
+        ? Number(tier.available)
+        : Math.max(0, qty - sold);
+      return {
+        capacity: acc.capacity + qty,
+        sold: acc.sold + sold,
+        remaining: acc.remaining + remaining,
+      };
+    },
+    { capacity: 0, sold: 0, remaining: 0 },
+  );
+
+  const totalCapacity =
+    (eventView?.capacity ?? 0) > 0 ? (eventView?.capacity || 0) : (tierTotals?.capacity || 0);
+  const totalSold =
+    (eventView?.ticketsSold ?? 0) > 0 ? (eventView?.ticketsSold || 0) : (tierTotals?.sold || 0);
+
+  const availableTickets =
+    totalCapacity > 0 ? Math.max(0, totalCapacity - totalSold) : Math.max(0, tierTotals?.remaining || 0);
+  const percentSold = totalCapacity > 0 ? (totalSold / totalCapacity) * 100 : 0;
   const showUrgency = availableTickets <= 100 || percentSold >= 75;
   const showSocialProof = percentSold >= 50 && percentSold < 75;
   const venueMapQuery = eventView?.venue?.address || eventView?.location || '';
